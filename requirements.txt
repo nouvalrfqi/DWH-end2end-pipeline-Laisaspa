@@ -1,0 +1,10 @@
+# Core dependencies for the data platform
+python-dotenv==1.2.2      # load environment variables from .env
+psycopg2-binary==2.9.12   # PostgreSQL driver
+boto3==1.43.62            # AWS S3 SDK
+PyYAML==6.0.3             # configuration files (config/*.yaml)
+pandas==3.0.5             # dataframes / CSV serialization
+pyarrow==23.0.1           # parquet serialization (future raw format)
+
+# Testing
+pytest==9.1.1
