@@ -1,59 +1,29 @@
-import os
+"""Sprint 1 acceptance: verify PostgreSQL + S3 connectivity end to end."""
+
 import sys
 
-import boto3
-import psycopg2
-from botocore.exceptions import BotoCoreError, ClientError
-from dotenv import load_dotenv
-
-SOURCE_TABLES = [
-    "treatments",
-    "spa_products",
-    "booking_groups",
-    "booking_logs",
-    "transactions",
-    "completed_items",
-    "members",
-    "gift_cards",
-    "reviews",
-    "spa_consultations",
-    "site_settings",
-]
-
-load_dotenv()
+from config import settings
+from extract import postgres_connector, s3_client
 
 
 def check_postgres() -> bool:
-    required = ["SUPABASE_HOST", "SUPABASE_PORT", "SUPABASE_DATABASE", "SUPABASE_USERNAME", "SUPABASE_PASSWORD"]
-    missing = [k for k in required if not os.environ.get(k)]
-    if missing:
-        print(f"FAIL postgres: missing env vars {missing}")
+    try:
+        settings.validate()
+    except RuntimeError as exc:
+        print(f"FAIL postgres: {exc}")
         return False
 
     try:
-        conn = psycopg2.connect(
-            host=os.environ["SUPABASE_HOST"],
-            port=os.environ["SUPABASE_PORT"],
-            dbname=os.environ["SUPABASE_DATABASE"],
-            user=os.environ["SUPABASE_USERNAME"],
-            password=os.environ["SUPABASE_PASSWORD"],
-            sslmode="require",
-            connect_timeout=10,
-        )
-        conn.autocommit = True
+        conn = postgres_connector.connect()
         with conn.cursor() as cur:
             cur.execute("SELECT version();")
             version = cur.fetchone()[0].split(" on ")[0]
         print(f"PASS postgres: connected ({version})")
 
-        with conn.cursor() as cur:
-            for table in SOURCE_TABLES:
-                try:
-                    cur.execute(f'SELECT COUNT(*) FROM "{table}";')
-                    count = cur.fetchone()[0]
-                    print(f"  {table:20s} {count:>8,} rows")
-                except Exception as exc:
-                    print(f"  {table:20s} ERROR: {exc}")
+        for table in settings.SOURCE_TABLES:
+            count = postgres_connector.fetch_row_count(conn, table)
+            columns = postgres_connector.inspect_table(conn, table)
+            print(f"  {table:20s} {count:>8,} rows  ({len(columns)} columns)")
         conn.close()
         return True
     except Exception as exc:
@@ -62,20 +32,23 @@ def check_postgres() -> bool:
 
 
 def check_s3() -> bool:
-    required = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET_NAME"]
-    missing = [k for k in required if not os.environ.get(k)]
-    if missing:
-        print(f"FAIL s3: missing env vars {missing}")
+    try:
+        client = s3_client.get_client()
+    except Exception as exc:
+        print(f"FAIL s3: {exc}")
         return False
 
+    if not s3_client.bucket_exists(client):
+        print(f"FAIL s3: bucket '{settings.S3_BUCKET}' not reachable")
+        return False
+    print(f"PASS s3: authenticated, bucket '{settings.S3_BUCKET}' reachable")
+
     try:
-        client = boto3.client("s3", region_name=os.environ["AWS_REGION"])
-        bucket = os.environ["AWS_BUCKET_NAME"]
-        client.head_bucket(Bucket=bucket)
-        print(f"PASS s3: authenticated, bucket '{bucket}' reachable")
+        key = s3_client.upload_test_object(client)
+        print(f"PASS s3: test object verified + deleted  s3://{settings.S3_BUCKET}/{key}")
         return True
-    except (ClientError, BotoCoreError) as exc:
-        print(f"FAIL s3: {exc}")
+    except Exception as exc:
+        print(f"FAIL s3: test upload failed: {exc}")
         return False
 
 
@@ -84,8 +57,7 @@ if __name__ == "__main__":
     s3_ok = check_s3()
     print()
     if postgres_ok and s3_ok:
-        print("Connectivity: ALL PASS")
+        print("Sprint 1 acceptance: ALL PASS")
         sys.exit(0)
-    else:
-        print("Connectivity: FAIL")
-        sys.exit(1)
+    print("Sprint 1 acceptance: FAIL")
+    sys.exit(1)

@@ -1,0 +1,16 @@
+source_system: supabase_postgresql
+load_type: full
+error_policy: continue   # continue | stop
+
+tables:
+  - treatments
+  - spa_products
+  - booking_groups
+  - booking_logs
+  - transactions
+  - completed_items
+  - members
+  - gift_cards
+  - reviews
+  - spa_consultations
+  - site_settings
