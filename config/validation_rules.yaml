@@ -1,0 +1,82 @@
+# Data validation rules per source table (Sprint 3, Phase 4).
+# Grounded on the actual schema inspected from Supabase (2026-08-09).
+# Column lists are the EXACT public-schema columns of each table.
+# Every check type: min_value, accepted_values, not_null, unique, columns.
+version: 1
+
+tables:
+  treatments:
+    columns: [id, slug, name, short_description, full_description, price, duration, category, image_url, details, is_featured, featured_order, is_active, created_at, updated_at, price_type]
+    not_null: [id, slug, name, price, category, price_type]
+    unique: [id]
+    checks:
+      - {type: min_value, column: price, min: 0}
+      - {type: accepted_values, column: price_type, values: [static, conditional]}
+
+  spa_products:
+    columns: [id, slug, name, short_description, full_description, price, category, image_url, details, is_featured, featured_order, is_active, created_at, updated_at]
+    not_null: [id, slug, name, price, category]
+    unique: [id]
+    checks:
+      - {type: min_value, column: price, min: 0}
+
+  booking_groups:
+    columns: [id, customer_name, customer_phone, email, created_at]
+    not_null: [id, customer_name]
+    unique: [id]
+
+  booking_logs:
+    columns: [id, item_type, item_name, source_page, status, group_id, price, guest_index, guest_name, scheduled_date, notes, created_at, treatment_id, product_id]
+    not_null: [id, item_type, item_name, group_id]
+    unique: [id]
+    checks:
+      - {type: min_value, column: price, min: 0}
+      - {type: accepted_values, column: item_type, values: [treatment, product, membership]}
+      - {type: accepted_values, column: status, values: [completed, booked, cancelled, arrived, approved, no_show]}
+
+  transactions:
+    columns: [id, customer_name, customer_phone, total_price, source, gift_card_id, notes, discount_amount, created_at, updated_at]
+    not_null: [id, customer_name, total_price, source]
+    unique: [id]
+    checks:
+      - {type: min_value, column: total_price, min: 0}
+      - {type: min_value, column: discount_amount, min: 0}
+      - {type: accepted_values, column: source, values: [treatment, product, membership, gift_card]}
+
+  completed_items:
+    columns: [id, transaction_id, item_name, item_id, price, booking_log_id, created_at]
+    not_null: [id, transaction_id, item_name, price]
+    unique: [id]
+    checks:
+      - {type: min_value, column: price, min: 0}
+
+  members:
+    columns: [id, name, phone, email, joined_date, is_active, total_visits, membership_expiry, created_at, updated_at]
+    not_null: [id, name, phone]
+    unique: [id]
+
+  gift_cards:
+    columns: [id, gift_code, type, gift_value, item_id, item_name, sender_name, sender_phone, recipient_name, recipient_phone, personal_message, physical_card, physical_card_fee, discount_amount, order_status, voucher_status, expires_at, created_at, updated_at]
+    not_null: [id, gift_code, type, gift_value, sender_name, sender_phone, recipient_name]
+    unique: [id]
+    checks:
+      - {type: min_value, column: gift_value, min: 0}
+      - {type: accepted_values, column: type, values: [treatment, nominal]}
+      - {type: accepted_values, column: order_status, values: [booked, completed, approved, cancelled]}
+
+  reviews:
+    columns: [id, booking_group_id, customer_name, guest_index, rating, comment, created_at]
+    not_null: [id, booking_group_id, customer_name, guest_index, rating]
+    unique: [id]
+    checks:
+      - {type: accepted_values, column: rating, values: [1, 2, 3, 4, 5]}
+
+  spa_consultations:
+    columns: [id, booking_log_id, first_visit, medical_conditions, medical_details, current_conditions, current_details, medication, medication_detail, family_history, family_history_detail, surgery_history, surgery_history_detail, skin_types, skin_other, body_concerns, body_other, massage_pressure, expectations, custom_responses, created_at, updated_at]
+    not_null: [id]
+    unique: [id]
+
+  site_settings:
+    columns: [id, key, value, description, updated_at]
+    not_null: [id, key, value]
+    unique: [id]

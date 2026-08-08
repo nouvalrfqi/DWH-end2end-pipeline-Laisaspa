@@ -1,7 +1,8 @@
-"""Configuration-driven generic extractor (Phase 3, Sprint 2).
+"""Configuration-driven generic extractor (Phase 3, Sprint 2 + validation).
 
 One framework extracts every configured table to S3 as CSV. No
 table-specific extraction code. Batch metadata is written to logs/.
+Validation (Sprint 3) runs before upload: on FAIL the file is not uploaded.
 """
 
 import argparse
@@ -19,6 +20,7 @@ from psycopg2.extensions import connection
 from config import settings
 from extract import postgres_connector, s3_client
 from utils import logger
+from validation import validators
 
 SOURCE_SYSTEM = "supabase_postgresql"
 LOAD_TYPE = "full"
@@ -40,8 +42,15 @@ def build_s3_key(table: str, batch_id: str, now: datetime) -> str:
     )
 
 
-def extract_table(conn: connection, table: str, batch_id: str, now: datetime, log) -> Dict:
-    """Extract one table (full load) and upload to S3.
+def _failed_summary(validation: Dict) -> str:
+    failed = [c["name"] for c in validation.get("checks", []) if c["status"] == "FAIL"]
+    return ", ".join(failed) if failed else "unknown"
+
+
+def extract_table(conn: connection, table: str, batch_id: str, now: datetime,
+                  log, rules: Optional[dict] = None,
+                  validate: bool = True) -> Dict:
+    """Extract one table, validate, and (only if valid) upload to S3.
 
     Always returns a metadata record, even on failure.
     """
@@ -56,6 +65,8 @@ def extract_table(conn: connection, table: str, batch_id: str, now: datetime, lo
     }
 
     try:
+        source_count = postgres_connector.fetch_row_count(conn, table)
+
         query = sql.SQL("SELECT * FROM {table}").format(table=sql.Identifier(table))
         with conn.cursor() as cur:
             cur.execute(query)
@@ -63,9 +74,25 @@ def extract_table(conn: connection, table: str, batch_id: str, now: datetime, lo
             rows = cur.fetchall()
 
         df = pd.DataFrame(rows, columns=columns)
+
+        validation = {"overall": "SKIPPED", "checks": []}
+        if validate:
+            validation = validators.run_table_validation(table, df, rules, source_count)
+        record["validation"] = validation
+
+        if validation["overall"] == "FAIL":
+            record.update({
+                "end_time": datetime.now().isoformat(),
+                "status": "VALIDATION_FAILED",
+                "error_message": "validation failed; file not uploaded",
+                "rows_extracted": len(rows),
+                "rows_loaded": 0,
+            })
+            log.error("FAIL %-20s validation: %s", table, _failed_summary(validation))
+            return record
+
         buffer = io.StringIO()
         df.to_csv(buffer, index=False)
-
         key = build_s3_key(table, batch_id, now)
         s3_client.upload_bytes(key, buffer.getvalue())
 
@@ -91,7 +118,8 @@ def extract_table(conn: connection, table: str, batch_id: str, now: datetime, lo
     return record
 
 
-def run(tables: Optional[List[str]] = None, batch_id: Optional[str] = None) -> List[Dict]:
+def run(tables: Optional[List[str]] = None, batch_id: Optional[str] = None,
+        validate: bool = True) -> List[Dict]:
     """Run extraction for the given tables (default: all in tables.yaml)."""
     log = logger.setup_logger()
     now = datetime.now()
@@ -101,11 +129,14 @@ def run(tables: Optional[List[str]] = None, batch_id: Optional[str] = None) -> L
     selected = tables or config["tables"]
     error_policy = config.get("error_policy", "continue")
 
+    rules = validators.load_rules().get("tables", {})
+
     conn = postgres_connector.connect()
     records: List[Dict] = []
     try:
         for table in selected:
-            record = extract_table(conn, table, batch_id, now, log)
+            record = extract_table(conn, table, batch_id, now, log,
+                                   rules=rules.get(table), validate=validate)
             records.append(record)
             if record["status"] != "SUCCESS" and error_policy == "stop":
                 log.error("error_policy=stop -> aborting remaining tables")
@@ -122,10 +153,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generic PostgreSQL -> S3 extractor")
     parser.add_argument("--tables", help="Comma-separated tables (default: all in tables.yaml)")
     parser.add_argument("--batch-id", help="Custom batch id (default: YYYYMMDD_HHMMSS)")
+    parser.add_argument("--no-validate", action="store_true", help="Skip validation")
     args = parser.parse_args()
 
     selected = [t.strip() for t in args.tables.split(",")] if args.tables else None
-    summary = run(tables=selected, batch_id=args.batch_id)
+    summary = run(tables=selected, batch_id=args.batch_id, validate=not args.no_validate)
 
     failed = [r for r in summary if r["status"] != "SUCCESS"]
     print(f"\nExtraction: {len(summary) - len(failed)} OK, {len(failed)} FAILED")
