@@ -1,34 +1,91 @@
 import os
-from dotenv import load_dotenv
-from supabase import create_client, Client
+import sys
 
-# 1. Muat variabel lingkungan dari file .env
+import boto3
+import psycopg2
+from botocore.exceptions import BotoCoreError, ClientError
+from dotenv import load_dotenv
+
+SOURCE_TABLES = [
+    "treatments",
+    "spa_products",
+    "booking_groups",
+    "booking_logs",
+    "transactions",
+    "completed_items",
+    "members",
+    "gift_cards",
+    "reviews",
+    "spa_consultations",
+    "site_settings",
+]
+
 load_dotenv()
 
-# 2. Ambil nilai dari file .env menggunakan os.environ
-url: str = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
-key: str = os.environ.get("NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY")
 
-# Pastikan variabel tidak kosong sebelum membuat client
-if not url or not key:
-    raise ValueError("Pastikan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY sudah diisi di file .env")
+def check_postgres() -> bool:
+    required = ["SUPABASE_HOST", "SUPABASE_PORT", "SUPABASE_DATABASE", "SUPABASE_USERNAME", "SUPABASE_PASSWORD"]
+    missing = [k for k in required if not os.environ.get(k)]
+    if missing:
+        print(f"FAIL postgres: missing env vars {missing}")
+        return False
 
-# 3. Inisialisasi klien Supabase
-supabase: Client = create_client(url, key)
+    try:
+        conn = psycopg2.connect(
+            host=os.environ["SUPABASE_HOST"],
+            port=os.environ["SUPABASE_PORT"],
+            dbname=os.environ["SUPABASE_DATABASE"],
+            user=os.environ["SUPABASE_USERNAME"],
+            password=os.environ["SUPABASE_PASSWORD"],
+            sslmode="require",
+            connect_timeout=10,
+        )
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute("SELECT version();")
+            version = cur.fetchone()[0].split(" on ")[0]
+        print(f"PASS postgres: connected ({version})")
 
-# 4. Ambil data dari tabel
-try:
-    response = supabase.table("members").select("*").execute()
-    data = response.data
+        with conn.cursor() as cur:
+            for table in SOURCE_TABLES:
+                try:
+                    cur.execute(f'SELECT COUNT(*) FROM "{table}";')
+                    count = cur.fetchone()[0]
+                    print(f"  {table:20s} {count:>8,} rows")
+                except Exception as exc:
+                    print(f"  {table:20s} ERROR: {exc}")
+        conn.close()
+        return True
+    except Exception as exc:
+        print(f"FAIL postgres: {exc}")
+        return False
 
-    if not data:
-        print("Tidak ada data pada tabel 'members'.")
+
+def check_s3() -> bool:
+    required = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "AWS_BUCKET_NAME"]
+    missing = [k for k in required if not os.environ.get(k)]
+    if missing:
+        print(f"FAIL s3: missing env vars {missing}")
+        return False
+
+    try:
+        client = boto3.client("s3", region_name=os.environ["AWS_REGION"])
+        bucket = os.environ["AWS_BUCKET_NAME"]
+        client.head_bucket(Bucket=bucket)
+        print(f"PASS s3: authenticated, bucket '{bucket}' reachable")
+        return True
+    except (ClientError, BotoCoreError) as exc:
+        print(f"FAIL s3: {exc}")
+        return False
+
+
+if __name__ == "__main__":
+    postgres_ok = check_postgres()
+    s3_ok = check_s3()
+    print()
+    if postgres_ok and s3_ok:
+        print("Connectivity: ALL PASS")
+        sys.exit(0)
     else:
-        print(f"Total {len(data)} baris data dari tabel 'members':\n")
-        for i, row in enumerate(data, start=1):
-            print(f"---------- Data ke-{i} ----------")
-            for key, value in row.items():
-                print(f"  {key}: {value}")
-            print()
-except Exception as e:
-    print(f"Terjadi kesalahan saat mengambil data: {e}")
+        print("Connectivity: FAIL")
+        sys.exit(1)
