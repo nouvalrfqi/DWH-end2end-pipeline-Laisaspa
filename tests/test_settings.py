@@ -51,3 +51,44 @@ def test_source_tables_berisi_11_tabel():
     """Kontrak awal proyek: 11 tabel sumber dari PRD."""
     assert len(settings.SOURCE_TABLES) == 11
     assert "transactions" in settings.SOURCE_TABLES
+
+
+def test_snowflake_conn_params_memiliki_semua_key_connector():
+    """Kontrak: params Snowflake selalu berisi key yang dibutuhkan connector."""
+    params = settings.snowflake_conn_params()
+    for key in ["account", "user", "password", "role",
+                "warehouse", "database", "schema"]:
+        assert key in params
+
+
+def test_snowflake_conn_params_mengikuti_env(monkeypatch):
+    """Nilai param diambil dari env SNOWFLAKE_*."""
+    monkeypatch.setattr(settings, "SF_ACCOUNT", "acct-1")
+    monkeypatch.setattr(settings, "SF_USERNAME", "user1")
+    monkeypatch.setattr(settings, "SF_PASSWORD", "pass1")
+    monkeypatch.setattr(settings, "SF_ROLE", "ACCOUNTADMIN")
+
+    params = settings.snowflake_conn_params()
+    assert params["account"] == "acct-1"
+    assert params["user"] == "user1"
+    assert params["password"] == "pass1"
+    assert params["role"] == "ACCOUNTADMIN"
+
+
+def test_validate_snowflake_passes_saat_semua_terisi(monkeypatch):
+    """Jika semua env Snowflake terisi, validate_snowflake() tidak boleh error."""
+    for name in ["SF_ACCOUNT", "SF_USERNAME", "SF_PASSWORD", "SF_ROLE",
+                 "SF_WAREHOUSE", "SF_DATABASE", "SF_SCHEMA"]:
+        monkeypatch.setattr(settings, name, "dummy")
+
+    settings.validate_snowflake()  # kalau ini melempar, test otomatis gagal
+
+
+def test_validate_snowflake_raises_saat_hilang(monkeypatch):
+    """Fail-fast: env Snowflake kosong harus memunculkan RuntimeError jelas."""
+    for name in ["SF_ACCOUNT", "SF_USERNAME", "SF_PASSWORD", "SF_ROLE",
+                 "SF_WAREHOUSE", "SF_DATABASE", "SF_SCHEMA"]:
+        monkeypatch.setattr(settings, name, "")
+
+    with pytest.raises(RuntimeError, match="Missing required environment variables"):
+        settings.validate_snowflake()
