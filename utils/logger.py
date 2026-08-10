@@ -26,10 +26,11 @@ def setup_logger(name: str = "extract") -> logging.Logger:
     return logger
 
 
-def write_batch_metadata(batch_id: str, records: List[dict]) -> Path:
-    """Write per-batch metadata JSON to logs/extract_log_<batch>.json."""
+def write_batch_metadata(batch_id: str, records: List[dict],
+                         prefix: str = "extract") -> Path:
+    """Write per-batch metadata JSON to logs/{prefix}_log_<batch>.json."""
     LOGS_DIR.mkdir(exist_ok=True)
-    path = LOGS_DIR / f"extract_log_{batch_id}.json"
+    path = LOGS_DIR / f"{prefix}_log_{batch_id}.json"
     payload = {
         "batch_id": batch_id,
         "generated_at": datetime.now().isoformat(),
