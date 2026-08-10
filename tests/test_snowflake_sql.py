@@ -46,3 +46,13 @@ def test_02_stage_url_menunjuk_raw_prefix():
     """Opsi A: stage menunjuk ke raw/ sehingga COPY pakai @spa_stage/<table>/."""
     content = _read_sql("02_storage_integration.sql")
     assert "s3://spa-data-platform-dev/raw/" in content
+
+
+def test_03_staging_tables_berisi_11_tabel():
+    """Kontrak: 03 di-generate dari skema Supabase asli untuk semua tabel."""
+    content = _read_sql("03_staging_tables.sql")
+    assert content.strip(), "03 harus berisi DDL"
+    for table in ["treatments", "spa_products", "booking_groups", "booking_logs",
+                  "transactions", "completed_items", "members", "gift_cards",
+                  "reviews", "spa_consultations", "site_settings"]:
+        assert f"CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.{table}" in content
