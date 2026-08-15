@@ -1,4 +1,4 @@
-"""Test untuk snowflake/ddl_generator.py (Task 3).
+"""Test untuk warehouse/ddl_generator.py (Task 3).
 
 Fungsi murni (map_postgres_type, generate_create_table) diuji offline;
 fungsi yang butuh koneksi Supabase diuji lewat fake inspect_table.
@@ -7,7 +7,7 @@ fungsi yang butuh koneksi Supabase diuji lewat fake inspect_table.
 import pytest
 
 from config import settings
-from snowflake import ddl_generator
+from warehouse import ddl_generator
 
 
 @pytest.mark.parametrize(

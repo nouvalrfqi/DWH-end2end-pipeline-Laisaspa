@@ -1,6 +1,6 @@
 """Snowflake loader: thin SQL runner for staging (Phase 5, Task 4).
 
---setup  executes the DDL in snowflake/sql/ (01 -> 02 -> 03) using a
+--setup  executes the DDL in warehouse/sql/ (01 -> 02 -> 03) using a
          bootstrap connection (only account/user/password/role; the
          database/warehouse are created by the DDL itself).
 --load   full load per table: TRUNCATE -> COPY INTO (from the S3 stage) ->
@@ -147,10 +147,19 @@ def run_load(tables: Optional[List[str]] = None,
 
 
 def execute_sql_script(conn, sql_text: str) -> int:
-    """Run every statement in a SQL script, splitting on ';'."""
+    """Run every statement in a SQL script, splitting on ';'.
+
+    Comment-only lines (-- ...) are dropped before splitting so semicolons
+    inside comments never split statements apart (e.g. the '<real-arn>'; in
+    02_storage_integration.sql).
+    """
+    body = "\n".join(
+        line for line in sql_text.splitlines()
+        if line.strip() and not line.lstrip().startswith("--")
+    )
     executed = 0
     with conn.cursor() as cur:
-        for chunk in sql_text.split(";"):
+        for chunk in body.split(";"):
             statement = chunk.strip()
             if not statement:
                 continue

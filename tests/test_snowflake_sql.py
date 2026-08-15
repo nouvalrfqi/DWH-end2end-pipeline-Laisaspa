@@ -1,4 +1,4 @@
-"""Test untuk snowflake/sql/ DDL (Task 2).
+"""Test untuk warehouse/sql/ DDL (Task 2).
 
 Goal: melindungi kontrak DDL secara offline — file ada, non-kosong, dan
 tetap idempotent (IF NOT EXISTS) supaya aman dijalankan berulang (PRD §17).
@@ -7,12 +7,12 @@ tetap idempotent (IF NOT EXISTS) supaya aman dijalankan berulang (PRD §17).
 
 from pathlib import Path
 
-SQL_DIR = Path(__file__).resolve().parents[1] / "snowflake" / "sql"
+SQL_DIR = Path(__file__).resolve().parents[1] / "warehouse" / "sql"
 
 
 def _read_sql(filename: str) -> str:
     path = SQL_DIR / filename
-    assert path.exists(), f"{filename} tidak ditemukan di snowflake/sql/"
+    assert path.exists(), f"{filename} tidak ditemukan di warehouse/sql/"
     return path.read_text()
 
 

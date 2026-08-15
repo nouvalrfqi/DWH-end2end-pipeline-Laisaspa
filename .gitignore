@@ -15,12 +15,15 @@ venv/
 htmlcov/
 
 # ===== Local data / logs =====
+# NOTE: data lives in S3 (data lake) + Snowflake. These dirs are just a
+# safety net for any future local scratch data. The `warehouse/` PYTHON
+# PACKAGE (snowflake loader) must NOT be ignored, hence the -data suffix.
 logs/
 *.csv
 *.parquet
 raw/
 staging/
-warehouse/
+warehouse-data/
 
 # ===== dbt =====
 dbt/logs/

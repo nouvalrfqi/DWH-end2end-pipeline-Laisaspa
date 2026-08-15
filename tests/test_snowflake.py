@@ -1,4 +1,4 @@
-"""Test untuk snowflake/loader.py (Task 4).
+"""Test untuk warehouse/loader.py (Task 4).
 
 Semua test offline: koneksi Snowflake diganti FakeSnowflakeConnection
 (lihat tests/fakes.py) sehingga snowflake.connector tidak pernah disentuh.
@@ -9,7 +9,7 @@ import sys
 
 from config import settings
 from fakes import FakeSnowflakeConnection
-from snowflake import loader
+from warehouse import loader
 
 
 class _NullLog:
@@ -27,6 +27,26 @@ def _set_snowflake_settings(monkeypatch, value="dummy"):
     for name in ["SF_ACCOUNT", "SF_USERNAME", "SF_PASSWORD", "SF_ROLE",
                  "SF_WAREHOUSE", "SF_DATABASE", "SF_SCHEMA"]:
         monkeypatch.setattr(settings, name, value)
+
+
+# ---------- execute_sql_script ----------
+
+def test_execute_sql_script_abaikan_komentar_dan_statement_kosong():
+    conn = FakeSnowflakeConnection()
+    sql = (
+        "-- comment with a semicolon: SET X = 'y';\n"
+        "\n"
+        "CREATE DATABASE IF NOT EXISTS SPA_ANALYTICS;\n"
+        "CREATE WAREHOUSE IF NOT EXISTS SPA_WH;\n"
+    )
+    count = loader.execute_sql_script(conn, sql)
+
+    assert count == 2
+    # komentar tidak boleh menghasilkan statement 'Empty SQL statement'
+    assert conn.executed == [
+        "CREATE DATABASE IF NOT EXISTS SPA_ANALYTICS",
+        "CREATE WAREHOUSE IF NOT EXISTS SPA_WH",
+    ]
 
 
 # ---------- build_truncate_statement ----------
@@ -88,7 +108,7 @@ def test_connect_snowflake_menyaring_param_kosong(monkeypatch):
             return "conn"
 
     fake_connector = FakeConnectorModule()
-    import snowflake  # package lokal proyek ini
+    import snowflake  # connector asli dari pip (package lokal sudah rename jadi warehouse/)
 
     # injeksi ke sys.modules + atribut parent, supaya `import snowflake.connector`
     # mengarah ke modul palsu ini

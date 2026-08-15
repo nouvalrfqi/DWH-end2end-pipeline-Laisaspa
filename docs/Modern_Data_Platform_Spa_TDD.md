@@ -879,7 +879,7 @@ spa-modern-data-platform/
 |
 +-- validation/
 |
-+-- snowflake/
++-- warehouse/
 |
 +-- dbt/
 |   +-- models/

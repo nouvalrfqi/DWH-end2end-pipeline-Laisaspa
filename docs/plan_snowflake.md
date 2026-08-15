@@ -39,7 +39,7 @@ Snowflake WAREHOUSE -> MART -> Power BI
 |---|---|---|
 | Extract S3 | Python (`extract/`) | Python upload ke S3 |
 | S3 → Snowflake | SQL `COPY INTO` (mesin Snowflake yang membaca S3) | **Snowflake** |
-| Trigger COPY | Thin Python runner (`snowflake/loader.py`) — hanya kirim SQL + catat metadata | — |
+| Trigger COPY | Thin Python runner (`warehouse/loader.py`) — hanya kirim SQL + catat metadata | — |
 | Transform | dbt (SQL dieksekusi di dalam Snowflake, Phase 7) | Snowflake |
 
 Pola ini = best practice industri: load via SQL COPY (standar Snowflake), trigger otomatis yang tipis
@@ -56,7 +56,7 @@ Pola ini = best practice industri: load via SQL COPY (standar Snowflake), trigge
 - `.env.example`: tambah placeholder `SNOWFLAKE_*` (tanpa secret).
 - Verifikasi: `pip install -r requirements.txt` + `import snowflake.connector` sukses.
 
-### Task 2 — `snowflake/sql/` DDL (idempotent, bisa dijalankan manual di SnowSQL)
+### Task 2 — `warehouse/sql/` DDL (idempotent, bisa dijalankan manual di SnowSQL)
 - `01_database_warehouse.sql`: DB `SPA_ANALYTICS`, warehouse `SPA_WH` (XSMALL, auto-suspend/resume),
   schemas `STAGING`, `WAREHOUSE`, `MART`.
 - `02_storage_integration.sql`:
@@ -65,15 +65,15 @@ Pola ini = best practice industri: load via SQL COPY (standar Snowflake), trigge
   - Storage integration ke IAM role (ARN placeholder) + external stage ke `s3://spa-data-platform-dev/raw/`.
 - `03_staging_tables.sql`: `CREATE OR REPLACE` 11 tabel staging (di-generate, lihat Task 3).
 
-### Task 3 — `snowflake/ddl_generator.py` (PRD Rule 3: jangan mengarang kolom)
+### Task 3 — `warehouse/ddl_generator.py` (PRD Rule 3: jangan mengarang kolom)
 - Baca skema asli Supabase via `postgres_connector.inspect_table` (11 tabel).
 - Map tipe Postgres → Snowflake: `uuid→VARCHAR(36)`, `text/varchar→VARCHAR`, `numeric→NUMBER(38,9)`,
   `int/integer→NUMBER(38,0)`, `double→FLOAT`, `boolean→BOOLEAN`, `timestamp→TIMESTAMP_NTZ`,
   `date→DATE`, `jsonb→VARIANT`.
-- Generate `snowflake/sql/03_staging_tables.sql`.
+- Generate `warehouse/sql/03_staging_tables.sql`.
 - Fungsi pure (`map_postgres_type`, `generate_create_table`) → bisa di-test offline.
 
-### Task 4 — `snowflake/loader.py` (thin Python runner)
+### Task 4 — `warehouse/loader.py` (thin Python runner)
 - CLI: `--setup` (eksekusi DDL 01–03) dan `--load` (default: full load).
 - Per tabel dari `config/tables.yaml`:
   1. `TRUNCATE TABLE STAGING.<table>` (idempotensi, PRD section 17)
