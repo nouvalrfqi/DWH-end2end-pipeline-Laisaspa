@@ -35,6 +35,30 @@ def upload_test_object(client=None) -> str:
     client.delete_object(Bucket=settings.S3_BUCKET, Key=key)
     return key
 
+def clear_prefix(prefix: str, client=None) -> int:
+    """Delete every object under ``prefix`` (store-based pagination + batched delete).
+
+    Keeps the raw/<table>/ prefix a single full snapshot so COPY INTO never
+    loads accumulating batches. Returns the number of objects deleted.
+    """
+    client = client or get_client()
+    paginator = client.get_paginator("list_objects_v2")
+    deleted = 0
+    for page in paginator.paginate(Bucket=settings.S3_BUCKET, Prefix=prefix):
+        contents = page.get("Contents", [])
+        if not contents:
+            continue
+        keys = [{"Key": obj["Key"]} for obj in contents]
+        for i in range(0, len(keys), 1000):
+            batch = keys[i:i + 1000]
+            response = client.delete_objects(
+                Bucket=settings.S3_BUCKET,
+                Delete={"Objects": batch},
+            )
+            deleted += len(response.get("Deleted", []))
+    return deleted
+
+
 def upload_bytes(key: str, body: str, client=None) -> None:
     """Upload a UTF-8 string as an S3 object (used by the generic extractor)."""
     client = client or get_client()

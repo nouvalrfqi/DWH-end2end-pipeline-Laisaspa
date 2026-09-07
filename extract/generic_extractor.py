@@ -94,6 +94,8 @@ def extract_table(conn: connection, table: str, batch_id: str, now: datetime,
         buffer = io.StringIO()
         df.to_csv(buffer, index=False)
         key = build_s3_key(table, batch_id, now)
+        removed = s3_client.clear_prefix(f"{settings.RAW_PREFIX}/{table}/")
+        log.info("CLR %-20s removed %d old object(s) under raw/%s/", table, removed, table)
         s3_client.upload_bytes(key, buffer.getvalue())
 
         end = datetime.now()
