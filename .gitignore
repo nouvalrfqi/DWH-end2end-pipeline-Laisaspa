@@ -1,7 +1,8 @@
 # ===== Secrets =====
 .env
 *.env
-.env.airflow
+.env.*
+*.pem
 
 # ===== Python =====
 __pycache__/
