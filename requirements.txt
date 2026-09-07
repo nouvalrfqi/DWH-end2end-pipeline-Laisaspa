@@ -12,4 +12,4 @@ pytest==9.1.1
 moto==5.1.15           # mock AWS services for S3 tests
 
 # dbt
-dbt-snowflake==1.12.3
+dbt-snowflake==1.12.0
