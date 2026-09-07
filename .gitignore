@@ -1,12 +1,14 @@
 # ===== Secrets =====
 .env
 *.env
+.env.airflow
 
 # ===== Python =====
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.venv-airflow/
 venv/
 .pytest_cache/
 .mypy_cache/
@@ -26,15 +28,26 @@ staging/
 warehouse-data/
 
 # ===== dbt =====
-dbt/logs/
-dbt/target/
-dbt/dbt_packages/
-dbt/profiles/
+SPA_ANALYTICS_DBT/logs/
+SPA_ANALYTICS_DBT/target/
+SPA_ANALYTICS_DBT/dbt_packages/
+SPA_ANALYTICS_DBT/.user.yml
 profiles.yml
-dbt/.user.yml
+
+# ===== Airflow (local machine state) =====
+airflow/airflow.db
+airflow/airflow.cfg
+airflow/webserver_config.py
+
+# ===== OpenCode scratch / personal =====
+opencode_orch/
+
+# ===== Scratch scripts =====
+scripts/temp_query.py
 
 # ===== IDE / OS =====
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+
