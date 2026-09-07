@@ -1,0 +1,53 @@
+version: 2
+
+sources:
+  - name: spa_staging
+    database: SPA_ANALYTICS
+    schema: STAGING
+    tables:
+      - name: treatments
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+      - name: spa_products
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+      - name: transactions
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+      - name: booking_logs
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+      - name: booking_groups
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+      - name: members
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+          - name: phone
+            tests:
+              - not_null
+              - unique
+      - name: completed_items
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique

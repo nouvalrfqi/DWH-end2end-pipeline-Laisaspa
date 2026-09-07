@@ -25,7 +25,9 @@ logs/
 *.csv
 *.parquet
 raw/
-staging/
+# NOTE: anchored to repo root only (/staging/) so it does NOT swallow
+# SPA_ANALYTICS_DBT/models/staging/sources.yml
+/staging/
 warehouse-data/
 
 # ===== dbt =====
