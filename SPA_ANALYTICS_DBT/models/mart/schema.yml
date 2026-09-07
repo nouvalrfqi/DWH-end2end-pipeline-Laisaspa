@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: mart_revenue_daily
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+      - name: transaction_date
+        tests:
+          - not_null
+      - name: source
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['gift_card', 'membership', 'treatment']
+      - name: transaction_count
+        tests:
+          - not_null
+      - name: net_revenue
+        tests:
+          - not_null
+
+  - name: mart_customer_analytics
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - unique
+      - name: customer_phone
+        tests:
+          - not_null
+          - unique
+      - name: total_net
+        tests:
+          - not_null
+
+  - name: mart_treatment_analytics
+    columns:
+      - name: treatment_key
+        tests:
+          - not_null
+          - unique
+      - name: treatment_id
+        tests:
+          - not_null
+          - unique
+      - name: total_bookings
+        tests:
+          - not_null
+
+  - name: mart_product_analytics
+    columns:
+      - name: product_key
+        tests:
+          - not_null
+          - unique
+      - name: product_id
+        tests:
+          - not_null
+          - unique
+
+  - name: mart_operations_booking
+    columns:
+      - name: scheduled_date_key
+        tests:
+          - not_null
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['completed', 'cancelled', 'booked', 'no_show', 'arrived', 'approved']
+      - name: booking_count
+        tests:
+          - not_null

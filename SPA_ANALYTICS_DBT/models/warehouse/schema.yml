@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+      - name: full_date
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_treatment
+    columns:
+      - name: treatment_key
+        tests:
+          - not_null
+          - unique
+      - name: treatment_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_product
+    columns:
+      - name: product_key
+        tests:
+          - not_null
+          - unique
+      - name: product_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_customer
+    columns:
+      - name: customer_key
+        tests:
+          - not_null
+          - unique
+      - name: customer_phone
+        tests:
+          - not_null
+          - unique
+
+  - name: fact_transactions
+    columns:
+      - name: transaction_key
+        tests:
+          - not_null
+          - unique
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_key
+        tests:
+          - not_null
+      - name: date_key
+        tests:
+          - not_null
+
+  - name: fact_treatment_activities
+    columns:
+      - name: activity_key
+        tests:
+          - not_null
+          - unique
+      - name: booking_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_key
+        tests:
+          - not_null
+      - name: scheduled_date_key
+        tests:
+          - not_null
+
+  - name: fact_completed_items
+    columns:
+      - name: completed_item_key
+        tests:
+          - not_null
+          - unique
+      - name: transaction_key
+        tests:
+          - not_null
+      - name: date_key
+        tests:
+          - not_null
