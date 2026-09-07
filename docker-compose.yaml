@@ -16,6 +16,7 @@ services:
   airflow-init:
     image: spa-airflow:2.11.2
     build: .
+    user: root
     environment: &airflow_env
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
