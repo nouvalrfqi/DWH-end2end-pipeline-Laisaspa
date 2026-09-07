@@ -10,3 +10,6 @@ snowflake-connector-python==4.7.2  # Snowflake driver (Phase 5)
 # Testing
 pytest==9.1.1
 moto==5.1.15           # mock AWS services for S3 tests
+
+# dbt
+dbt-snowflake==1.12.3

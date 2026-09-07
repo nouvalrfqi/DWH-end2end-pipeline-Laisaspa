@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  airflow-init:
+    image: spa-airflow:2.11.2
+    build: .
+    environment: &airflow_env
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__WEBSERVER__SECRET_KEY: ganti-dong-kunci-ini
+      SPA_PROJECT_ROOT: /opt/airflow/pipeline
+    env_file:
+      - .env.airflow
+    volumes: &spa_volumes
+      - ./airflow/dags:/opt/airflow/dags:ro
+      - ./:/opt/airflow/pipeline
+      - ${HOME}/.dbt:/home/airflow/.dbt
+      - spa_airflow_logs:/opt/airflow/logs
+      - spa_airflow_plugins:/opt/airflow/plugins
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "airflow db migrate && airflow users create
+      --username admin --password admin --firstname Admin --lastname User
+      --role Admin --email admin@example.com || true"
+
+  airflow-webserver:
+    image: spa-airflow:2.11.2
+    build: .
+    environment: *airflow_env
+    env_file:
+      - .env.airflow
+    volumes: *spa_volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: webserver
+    ports:
+      - "${AIRFLOW_WEB_PORT:-8082}:8080"
+    restart: unless-stopped
+
+  airflow-scheduler:
+    image: spa-airflow:2.11.2
+    build: .
+    environment: *airflow_env
+    env_file:
+      - .env.airflow
+    volumes: *spa_volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: scheduler
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  spa_airflow_logs:
+  spa_airflow_plugins:
