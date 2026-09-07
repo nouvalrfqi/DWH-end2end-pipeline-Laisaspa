@@ -53,14 +53,14 @@ CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.booking_logs (
     item_type VARCHAR,
     item_name VARCHAR,
     source_page VARCHAR,
+    created_at TIMESTAMP_TZ,
     status VARCHAR,
     group_id VARCHAR(36),
     price NUMBER(38,0),
     guest_index NUMBER(38,0),
-    guest_name VARCHAR,
     scheduled_date TIMESTAMP_TZ,
     notes VARCHAR,
-    created_at TIMESTAMP_TZ,
+    guest_name VARCHAR,
     treatment_id VARCHAR(36),
     product_id VARCHAR(36)
 );
@@ -71,11 +71,11 @@ CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.transactions (
     customer_phone VARCHAR,
     total_price NUMBER(38,0),
     source VARCHAR,
-    gift_card_id VARCHAR(36),
     notes VARCHAR,
-    discount_amount NUMBER(38,0),
     created_at TIMESTAMP_TZ,
-    updated_at TIMESTAMP_TZ
+    updated_at TIMESTAMP_TZ,
+    discount_amount NUMBER(38,0),
+    gift_card_id VARCHAR(36)
 );
 
 CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.completed_items (
@@ -95,10 +95,10 @@ CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.members (
     email VARCHAR,
     joined_date TIMESTAMP_TZ,
     is_active BOOLEAN,
-    total_visits NUMBER(38,0),
-    membership_expiry TIMESTAMP_TZ,
     created_at TIMESTAMP_TZ,
-    updated_at TIMESTAMP_TZ
+    updated_at TIMESTAMP_TZ,
+    membership_expiry TIMESTAMP_TZ,
+    total_visits NUMBER(38,0)
 );
 
 CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.gift_cards (
@@ -106,7 +106,7 @@ CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.gift_cards (
     gift_code VARCHAR,
     type VARCHAR,
     gift_value NUMBER(38,0),
-    item_id VARCHAR,
+    item_id VARCHAR(36),
     item_name VARCHAR,
     sender_name VARCHAR,
     sender_phone VARCHAR,
@@ -115,22 +115,22 @@ CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.gift_cards (
     personal_message VARCHAR,
     physical_card BOOLEAN,
     physical_card_fee NUMBER(38,0),
-    discount_amount NUMBER(38,0),
     order_status VARCHAR,
-    voucher_status VARCHAR,
     expires_at TIMESTAMP_TZ,
     created_at TIMESTAMP_TZ,
-    updated_at TIMESTAMP_TZ
+    updated_at TIMESTAMP_TZ,
+    voucher_status VARCHAR,
+    discount_amount NUMBER(38,0)
 );
 
 CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.reviews (
     id VARCHAR(36),
     booking_group_id VARCHAR(36),
     customer_name VARCHAR,
-    guest_index NUMBER(38,0),
     rating NUMBER(38,0),
     comment VARCHAR,
-    created_at TIMESTAMP_TZ
+    created_at TIMESTAMP_TZ,
+    guest_index NUMBER(38,0)
 );
 
 CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.spa_consultations (
@@ -153,9 +153,9 @@ CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.spa_consultations (
     body_other VARCHAR,
     massage_pressure VARCHAR,
     expectations VARCHAR,
-    custom_responses VARIANT,
     created_at TIMESTAMP_TZ,
-    updated_at TIMESTAMP_TZ
+    updated_at TIMESTAMP_TZ,
+    custom_responses VARIANT
 );
 
 CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.site_settings (

@@ -1,8 +1,9 @@
 """Test untuk warehouse/sql/ DDL (Task 2).
 
 Goal: melindungi kontrak DDL secara offline — file ada, non-kosong, dan
-tetap idempotent (IF NOT EXISTS) supaya aman dijalankan berulang (PRD §17).
-03_staging_tables.sql belum ada di Task 2 — lahir dari ddl_generator (Task 3).
+tetap idempotent (IF NOT EXISTS / OR REPLACE) supaya aman dijalankan
+berulang (PRD §17).
+03_staging_tables.sql di-generate dari ddl_generator (Task 3).
 """
 
 from pathlib import Path
@@ -25,16 +26,19 @@ def test_01_database_warehouse_ada_dan_berisi():
         assert f"CREATE SCHEMA IF NOT EXISTS SPA_ANALYTICS.{schema}" in content
 
 
-def test_02_storage_integration_ada_dan_idempotent():
-    content = _read_sql("02_storage_integration.sql")
+def test_02_stage_setup_ada_dan_berisi():
+    content = _read_sql("02_stage_setup.sql")
     assert content.strip(), "02 harus berisi DDL"
     assert "CREATE FILE FORMAT IF NOT EXISTS" in content
-    assert "CREATE STORAGE INTEGRATION IF NOT EXISTS" in content
-    assert "CREATE STAGE IF NOT EXISTS" in content
+    # Stage uses direct credentials (CREATE OR REPLACE, not IF NOT EXISTS)
+    assert "CREATE OR REPLACE STAGE" in content
+    # Credentials placeholders must be present for loader.py injection
+    assert "{AWS_KEY_ID}" in content
+    assert "{AWS_SECRET_KEY}" in content
 
 
 def test_02_file_format_csv_memiliki_param_kunci():
-    content = _read_sql("02_storage_integration.sql")
+    content = _read_sql("02_stage_setup.sql")
     assert "SKIP_HEADER" in content
     assert "FIELD_OPTIONALLY_ENCLOSED_BY" in content
     assert "EMPTY_FIELD_AS_NULL" in content
@@ -44,7 +48,7 @@ def test_02_file_format_csv_memiliki_param_kunci():
 
 def test_02_stage_url_menunjuk_raw_prefix():
     """Opsi A: stage menunjuk ke raw/ sehingga COPY pakai @spa_stage/<table>/."""
-    content = _read_sql("02_storage_integration.sql")
+    content = _read_sql("02_stage_setup.sql")
     assert "s3://spa-data-platform-dev/raw/" in content
 
 
@@ -53,6 +57,6 @@ def test_03_staging_tables_berisi_11_tabel():
     content = _read_sql("03_staging_tables.sql")
     assert content.strip(), "03 harus berisi DDL"
     for table in ["treatments", "spa_products", "booking_groups", "booking_logs",
-                  "transactions", "completed_items", "members", "gift_cards",
-                  "reviews", "spa_consultations", "site_settings"]:
+                   "transactions", "completed_items", "members", "gift_cards",
+                   "reviews", "spa_consultations", "site_settings"]:
         assert f"CREATE OR REPLACE TABLE SPA_ANALYTICS.STAGING.{table}" in content
