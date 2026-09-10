@@ -1,255 +1,182 @@
-# Modern Data Platform for Spa & Wellness Business
+# Modern Data Platform for Spa & Wellness
 
-An end-to-end modern data engineering portfolio project that extracts operational data from a
-Supabase PostgreSQL (OLTP) source, lands immutable raw data into an AWS S3 Data Lake, loads and
-models analytical data in Snowflake, transforms and tests it with dbt, orchestrates scheduled
-workflows with Apache Airflow, and exposes business-ready data marts to Power BI.
+An end-to-end, production-style **modern data stack** that turns the operational data of a spa & wellness business into analytics-ready insights. This repository is an individual engineering showcase built to industry standards — from extraction and data quality gates, through a cloud data lake and warehouse, to governed, tested analytics marts.
 
-> Full specification: [`Modern_Data_Platform_Spa_TDD.md`](./Modern_Data_Platform_Spa_TDD.md)
+## Overview
 
-## Architecture
+The platform moves operational data from a **Supabase PostgreSQL** (OLTP) source through a classic **ELT** pipeline:
 
 ```text
 Supabase PostgreSQL (OLTP)
-        |
-        v
-Python Generic Extraction Framework
-        |
-        v
-AWS S3 RAW Data Lake (CSV -> Parquet)
-        |
-        v
-Snowflake STAGING -> WAREHOUSE -> MART
-        |
-        v
-dbt Transformation
-        |
-        v
-Power BI
+        │  11 business tables
+        ▼
+Python Generic Extraction Framework   ── extract + validate
+        ▼
+AWS S3 RAW Data Lake (CSV, date-partitioned)
+        ▼
+Snowflake STAGING → WAREHOUSE → MART  ── COPY INTO + dbt
+        ▼
+dbt (transformations + 72 data tests)
+        ▼
+Power BI / Streamlit
 ```
 
-Apache Airflow (Docker Compose) orchestrates and schedules the full pipeline.
+**Apache Airflow** (Docker Compose, Postgres backend) schedules and orchestrates the full pipeline on a `@daily` interval.
 
-## Tech Stack
+## Why this architecture
 
-| Layer | Technology |
-|---|---|
-| Source | Supabase PostgreSQL |
-| Extraction | Python (psycopg2, pandas) |
-| Data Lake | AWS S3 (boto3) |
-| Warehouse | Snowflake |
-| Transformation | dbt |
-| Orchestration | Apache Airflow (Docker) |
-| BI | Power BI |
-| CI/CD | GitHub Actions |
+Each layer exists because it answers a specific engineering concern — and the decisions are deliberate:
+
+| Concern | Choice | Rationale |
+|---|---|---|
+| **Extraction** | Generic, config-driven Python framework (`extract/`) | Adding a new table is a YAML change, not new code. No per-table extractors. |
+| **Landing zone** | AWS S3 raw data lake, immutable CSV, date-partitioned | The lake decouples the OLTP source from the warehouse, keeps raw history, and lets Snowflake read data directly via internal staging. |
+| **Loading (ELT, not ETL)** | Snowflake reads from S3 via `COPY INTO` | Byte movement happens inside the warehouse engine, not in Python. Python only triggers SQL and records batch metadata — a thin, testable runner. |
+| **Transformations** | dbt (SQL-first) | Version-controlled, testable, dependency-managed transforms that run inside Snowflake. The warehouse, mart, and test layers are all declared in code. |
+| **Orchestration** | Apache Airflow (LocalExecutor, Postgres backend) | Industry-standard scheduler with retries, backfill, and a monitored UI. Postgres (not SQLite) for production-grade state. |
+| **Data quality** | Two gates: pre-upload validation + 72 dbt tests | Validation stops dirty data before it ever reaches S3; dbt tests guard the warehouse continuously (`not_null`, `unique`, `accepted_values`, row-count parity). |
+| **Security** | Secrets only in `.env` (gitignored), least-privilege IAM | No credentials in code or history; `.env.example` ships placeholders only. |
+
+The pipeline follows a **medallion-like layout** — `STAGING` (raw mirror) → `WAREHOUSE` (dimensional model) → `MART` (business-ready aggregates) — implemented in the dbt project under [`dbt/`](./dbt).
+
+## Data Flow
+
+### 1. Extract — Supabase → S3
+The generic extractor reads `config/tables.yaml`, queries each of the **11 tables**, converts rows to a DataFrame, runs the validation suite, and uploads to a date-partitioned S3 key:
+
+```text
+raw/<table>/year=YYYY/month=MM/day=DD/<table>_<batch>.csv
+```
+
+- A failed validation **prevents the upload** — no dirty data enters the warehouse.
+- Old objects under the table prefix are cleared before upload, so `STAGING` never accumulates duplicates across runs (idempotent full loads).
+- Each batch writes a metadata manifest to `logs/extract_log_<batch>.json` for audit.
+
+### 2. Load — S3 → Snowflake STAGING
+`warehouse/loader.py` runs a full load per table:
+
+```text
+TRUNCATE TABLE STAGING.<table>
+COPY INTO  STAGING.<table> FROM @spa_stage/<table>/ PATTERN='.*\.csv'
+SELECT COUNT(*)   -- verify
+```
+
+Snowflake pulls from S3 through its own stage (`spa_stage`); per-table results and counts are recorded in `logs/load_log_<batch>.json`.
+
+### 3. Transform — dbt STAGING → WAREHOUSE → MART
+Declared models under [`dbt/models/`](./dbt/models):
+
+- **Staging** — source declaration (`sources.yml`) of 7 tables from `SPA_ANALYTICS.STAGING`.
+- **Warehouse** — dimensional core: `dim_date`, `dim_customer`, `dim_product`, `dim_treatment` and facts `fact_transactions`, `fact_completed_items`, `fact_treatment_activities`. Surrogate keys are stable hashes (e.g. `MD5(id)`) for safe incremental joins.
+- **Mart** — analytics-ready aggregates: `mart_revenue_daily`, `mart_customer_analytics`, `mart_operations_booking`, `mart_product_analytics`, `mart_treatment_analytics`.
+- **Data tests** — every primary/surrogate key is tested for `not_null` + `unique`; business enums use `accepted_values`. The suite currently runs **72/72 passing**.
+
+### 4. Orchestrate — Apache Airflow
+The `spa_pipeline` DAG chains five tasks:
+
+```text
+check_connectivity → extract_to_s3 → load_to_staging → dbt_run → dbt_test
+```
+
+Containerized with Docker Compose (`postgres`, `airflow-webserver`, `airflow-scheduler`, `airflow-init`), each task retries on failure (2×) and state is visible in the Airflow UI.
 
 ## Repository Structure
 
 ```text
 spa-modern-data-platform/
-|-- .github/workflows/     # CI/CD (future)
-|-- config/                # settings + table/validation YAML config
-|-- extract/               # generic extractor, connectors
-|-- upload/                # S3 upload helpers
-|-- utils/                 # shared utilities (logging, etc.)
-|-- validation/            # data validation framework
-|-- warehouse/             # Snowflake loader + DDL scripts (Phase 5)
-|-- dbt/                   # dbt project (future)
-|-- airflow/               # DAGs (future)
-|-- tests/                 # pytest suite
-|-- docs/                  # business & technical documentation
-|-- logs/                  # extraction logs (gitignored)
-|-- requirements.txt
-|-- .env.example
-|-- .gitignore
-|-- docker-compose.yml     # (future)
-|-- README.md
+├── airflow/                 # Airflow DAGs (Docker Compose orchestration)
+├── config/                  # Central settings + table & validation YAML
+├── dbt/                     # dbt project: STAGING sources, WAREHOUSE, MART, tests
+├── extract/                 # Generic extractor + Postgres/S3 connectors
+├── validation/              # Pre-upload data validation framework
+├── warehouse/               # Snowflake loader, DDL generator, SQL scripts
+├── utils/                   # Logging + batch metadata helpers
+├── tests/                   # pytest suite (offline, mocked connectors)
+├── scripts/                 # Operational utilities (e.g. connectivity check)
+├── main.py                  # End-to-end connectivity acceptance check
+├── docker-compose.yaml      # Airflow stack
+├── Dockerfile               # Airflow image with project dependencies
+├── requirements.txt
+├── .env.example             # Placeholders only — never commit real secrets
+└── README.md
 ```
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - Python 3.11+
-- AWS account with S3 bucket `spa-data-platform-dev` (least-privilege IAM user)
-- Supabase project with the source tables populated
-- Snowflake account (trial/enterprise) with a user that can run DDL
+- AWS account with the S3 bucket `spa-data-platform-dev` and a least-privilege IAM user
+- Supabase project with the 11 source tables populated
+- Snowflake account with a user allowed to run DDL
+- dbt with a Snowflake profile for local runs
 
-## Setup
+### Local setup
 
 ```bash
-# 1. Clone / enter the repository
-cd spa-modern-data-platform
-
-# 2. Create a virtual environment
 python -m venv .venv
 source .venv/bin/activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
-cp .env.example .env
-#   -> fill in real Supabase / AWS credentials (never commit .env)
-
-# 5. Verify connectivity to Supabase
-python main.py
+cp .env.example .env        # fill in real credentials (never commit .env)
+python main.py              # verifies PostgreSQL + S3 connectivity
 ```
 
-## Snowflake Staging (Phase 5)
+### Snowflake & dbt
 
-Membawa data dari AWS S3 (data lake) ke Snowflake `STAGING` dengan pola ELT:
-Python hanya men-trigger SQL + mencatat metadata, mesin **Snowflake** yang membaca S3 via `COPY INTO`.
+1. Set `SNOWFLAKE_*` variables in `.env` (account identifier, user, password, role, warehouse, database, schema).
+2. Create the foundation objects and the external stage:
 
-```text
-S3 s3://spa-data-platform-dev/raw/<table>/...
-   |  SQL COPY INTO @spa_stage/<table>/
-   v
-SPA_ANALYTICS.STAGING.<table>   (11 tables)
-```
-
-### 1. Buat akun Snowflake (trial)
-
-1. Daftar di <https://signup.snowflake.com> (trial 30 hari).
-2. Ambil **account identifier** dari URL setelah login:
-   `https://<orgname>-<accountname>.snowflakecomputing.com` → `SNOWFLAKE_ACCOUNT=<orgname>-<accountname>`.
-3. Gunakan user + password dengan role berhak DDL (mis. `ACCOUNTADMIN` untuk tahap awal).
-
-### 2. Isi `.env`
-
-```bash
-SNOWFLAKE_ACCOUNT=<orgname>-<accountname>   # contoh: XYCDJIV-IL38768
-SNOWFLAKE_USERNAME=<your_snowflake_username>
-SNOWFLAKE_PASSWORD=<your_snowflake_password>
-SNOWFLAKE_ROLE=ACCOUNTADMIN
-SNOWFLAKE_WAREHOUSE=SPA_WH
-SNOWFLAKE_DATABASE=SPA_ANALYTICS
-SNOWFLAKE_SCHEMA=STAGING
-```
-
-> `SPA_WH` / `SPA_ANALYTICS` / `STAGING` dibuat oleh `--setup`; mengisinya di `.env`
-> aman dilakukan sebelum objek ada.
-
-### 3. Verifikasi koneksi
-
-> Pastikan `python` yang dipakai berasal dari venv project
-> (`source .venv/bin/activate` dulu, atau `".venv/bin/python"` langsung).
-> Python sistem (mis. Homebrew) tidak punya `snowflake-connector-python`.
-
-```bash
-python scripts/check_snowflake.py
-# PASS snowflake: connected
-#   account   = XS43148
-#   user      = NOUVALRFQI
-#   role      = ACCOUNTADMIN
-#   warehouse = (none — expected before --setup)
-```
-
-### 4. Wire AWS IAM role (sekali saja, via AWS Console)
-
-`--load` memakai storage integration ke S3 yang butuh IAM role (`spa-snowflake-read`).
-
-1. Jalankan setup dulu untuk membuat objek dan mendapat nilai Snowflake-side:
    ```bash
    python -m warehouse.loader --setup
    ```
-2. Ambil IAM user + external ID milik Snowflake:
-   ```sql
-   DESCRIBE STORAGE INTEGRATION spa_s3_integration;
-   -- STORAGE_AWS_IAM_USER_ARN = arn:aws:iam::<sf-aws-account>:user/<...>
-   -- STORAGE_AWS_EXTERNAL_ID   = <external-id>
-   ```
-3. Di AWS Console (region `ap-southeast-1`, bucket `spa-data-platform-dev`) buat
-   IAM role **`spa-snowflake-read`** dengan **trust policy** yang hanya mengizinkan
-   user Snowflake tersebut, lengkap dengan external ID:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [{
-       "Effect": "Allow",
-       "Principal": { "AWS": "<STORAGE_AWS_IAM_USER_ARN>" },
-       "Action": "sts:AssumeRole",
-       "Condition": { "StringEquals": { "sts:ExternalId": "<STORAGE_AWS_EXTERNAL_ID>" } }
-     }]
-   }
-   ```
-4. Lampirkan **inline policy** read-only berikut ke role:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [{
-       "Effect": "Allow",
-       "Action": ["s3:GetObject", "s3:GetBucketLocation"],
-       "Resource": [
-         "arn:aws:s3:::spa-data-platform-dev",
-         "arn:aws:s3:::spa-data-platform-dev/raw/*"
-       ]
-     }]
-   }
-   ```
-5. Arahkan storage integration ke role asli (mengganti ARN placeholder `000000000000`):
-   ```sql
-   ALTER STORAGE INTEGRATION spa_s3_integration
-     SET STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::<your-aws-account>:role/spa-snowflake-read';
+
+3. Load staging data (full load, per table):
+
+   ```bash
+   python -m warehouse.loader --load
    ```
 
-### 5. Setup objek Snowflake (idempotent, aman dijalankan ulang)
+4. Configure a dbt profile named `dbt` (e.g. in `~/.dbt/profiles.yml`) pointing at the same Snowflake account, then run the dbt project under [`dbt/`](./dbt):
+
+   ```bash
+   cd dbt
+   dbt deps
+   dbt run
+   dbt test
+   ```
+
+> The dbt project name/profile is `dbt`. If you upgraded from an older iteration, rename the profile key in your local `profiles.yml` accordingly.
+
+> The S3 → Snowflake stage uses direct AWS credentials injected at runtime during `--setup` (an explicit workaround chosen over a storage integration after diagnosing an `sts:AssumeRole` restriction between Snowflake and this AWS account).
+
+## Testing
+
+The repository ships a **comprehensive offline pytest suite** (`tests/`) covering settings, connectors, the generic extractor, the validation framework, the Snowflake SQL builders, and the DDL generator — using fakes and `moto` so nothing needs a live account:
 
 ```bash
-python -m warehouse.loader --setup
-# [setup] 01_database_warehouse.sql: 5 statement(s) executed
-# [setup] 02_storage_integration.sql: 3 statement(s) executed
-# [setup] 03_staging_tables.sql: 11 statement(s) executed
-# [setup] STAGING tables found: 11
+pytest
 ```
 
-Yang dibuat: DB `SPA_ANALYTICS`, warehouse `SPA_WH` (XSMALL, auto-suspend 300s),
-schemas `STAGING`/`WAREHOUSE`/`MART`, file format `SPA_CSV_FORMAT`, storage integration
-`SPA_S3_INTEGRATION`, stage `SPA_STAGE`, dan 11 tabel staging (di-generate dari skema
-Supabase asli — `python -m warehouse.ddl_generator`).
-
-### 6. Load data (full load)
-
-```bash
-python -m warehouse.loader --load
-```
-
-Per tabel: `TRUNCATE` → `COPY INTO @spa_stage/<table>/ PATTERN='.*\.csv'` → `SELECT COUNT(*)`.
-Metadata batch ditulis ke `logs/load_log_<batch>.json`. Opsi:
-
-- `--tables transactions,members` → hanya tabel tertentu.
-- `--batch-id <id>` → batch id custom.
-- `error_policy: continue` di `config/tables.yaml` → satu tabel gagal tidak menghentikan tabel lain.
-
-### 7. Verifikasi count sumber vs staging
-
-Cek count sumber (Supabase) dengan `python main.py`, lalu bandingkan di Snowflake:
-
-```sql
-SELECT 'transactions' AS t, COUNT(*) FROM SPA_ANALYTICS.STAGING.transactions
-UNION ALL SELECT 'booking_logs', COUNT(*) FROM SPA_ANALYTICS.STAGING.booking_logs;
-```
-
-Baseline awal: `transactions 179`, `booking_logs 279`, dst.
-
-## Environment Variables
-
-See [`.env.example`](./.env.example) for the full list. Keep all credentials in `.env`
-and never commit secrets to Git.
-
-## Roadmap / Status
-
-| Phase | Scope | Status |
-|---|---|---|
-| 0 | Business & design (KPI, source mapping, star schema) | Done |
-| 1-2 | Cloud infra + connectivity | Done |
-| 3 | Generic extraction framework | Done |
-| 4 | Data validation framework | Done |
-| 5 | Snowflake: DDL, loader, setup, staging load | In progress (setup done; `--load` menunggu wiring IAM role) |
-| 6-8 | Snowflake dimensional warehouse + dbt marts | Future |
-| 9 | Power BI | Future |
-| 10-15 | Airflow, incremental, Docker, testing, CI/CD, monitoring | Future |
+CI can run this suite without any environment credentials.
 
 ## Security
 
-- All credentials live in `.env` (gitignored); `.env.example` holds placeholders only.
-- S3 bucket blocks public access and uses server-side encryption.
-- Cloud IAM follows the principle of least privilege.
+- All credentials live in local `.env` files, which are gitignored; `.env.example` holds placeholders only.
+- Production code reads credentials exclusively from environment variables — never hardcoded.
+- S3 bucket blocks public access with server-side encryption; AWS IAM follows least privilege.
+- `*.pem`/key material is explicitly gitignored.
+
+## Status & Roadmap
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Business & analytics design (KPIs, source mapping, star schema) | Done |
+| 1–2 | Cloud infrastructure & connectivity | Done |
+| 3 | Generic extraction framework | Done |
+| 4 | Data validation framework | Done |
+| 5 | Snowflake staging (DDL, loader, COPY INTO load) | Done |
+| 6–8 | Dimensional warehouse + dbt marts + data tests | Done |
+| 9 | Power BI / Streamlit visualisation | In progress |
+| 10–12 | Airflow orchestration, incremental loading, CI/CD | Done / In progress |
+| 13–15 | Monitoring, observability, hardening | Planned |

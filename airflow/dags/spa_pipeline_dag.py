@@ -1,6 +1,6 @@
-"""Pipeline harian: Supabase -> S3 -> Snowflake STAGING -> dbt -> MART.
+"""Daily pipeline: Supabase -> S3 -> Snowflake STAGING -> dbt -> MART.
 
-Menjalankan script project existing via subprocess memakai .env project.
+Runs the project scripts as subprocesses using the project .env.
 """
 
 import os
@@ -14,7 +14,7 @@ from airflow.operators.python import PythonOperator
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(os.getenv("SPA_PROJECT_ROOT", Path(__file__).resolve().parents[2]))
-DBT_PROJECT_DIR = PROJECT_ROOT / "SPA_ANALYTICS_DBT"
+DBT_PROJECT_DIR = PROJECT_ROOT / "dbt"
 PY_BIN = shutil.which("python") or "python"
 DBT_BIN = shutil.which("dbt") or "dbt"
 

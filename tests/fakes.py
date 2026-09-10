@@ -1,26 +1,26 @@
-"""Test doubles (fakes) untuk suite Sprint 4.
+"""Test doubles for the offline test suite.
 
-Fake meniru PERILAKU objek asli, bukan implementasinya. Kita hanya meniru
-bagian psycopg2 yang benar-benar dipakai proyek ini, supaya test bisa
-berjalan offline, cepat, dan hasilnya deterministik.
+Fakes mimic the behaviour of the real connectors (psycopg2 and
+snowflake.connector) for just the subset the project uses, so tests run
+fast, offline and deterministically.
 """
 
 
 class FakeCursor:
-    """Meniru psycopg2.cursor.
+    """Mimics psycopg2.cursor.
 
-    Yang dipakai kode produksi:
-      - .description        -> list (column_name, type_code) untuk SELECT *
-      - .execute(query)     -> menyimpan query, agar test bisa meng-assert
-      - .fetchall()         -> mengembalikan baris yang dikonfigurasi
-      - .fetchone()         -> baris pertama (dipakai COUNT(*))
-      - __enter__/__exit__  -> kode produksi memakai `with conn.cursor() as cur:`
+    Supports the API surface used by production code:
+      - .description  -> list of (name, type_code) for SELECT *
+      - .execute()    -> records the query for assertions
+      - .fetchall()   -> returns the configured rows
+      - .fetchone()   -> first row (used by COUNT(*))
+      - context manager (production uses `with conn.cursor() as cur:`)
     """
 
     def __init__(self, rows=None, columns=None):
         self.description = [(name, None) for name in (columns or [])]
         self._rows = rows or []
-        self.executed = None  # (query, params) terakhir, untuk assert
+        self.executed = None
 
     def execute(self, query, params=None):
         self.executed = (query, params)
@@ -39,11 +39,7 @@ class FakeCursor:
 
 
 class FakeConnection:
-    """Meniru psycopg2.connection.
-
-    Kode produksi memakai conn.cursor() dan conn.close().
-    Setiap panggilan cursor() mengembalikan FakeCursor baru.
-    """
+    """Mimics psycopg2.connection (cursor() and close())."""
 
     def __init__(self, rows=None, columns=None):
         self._rows = rows
@@ -58,11 +54,10 @@ class FakeConnection:
 
 
 class FakeSnowflakeCursor:
-    """Meniru snowflake.connector.cursor untuk test loader offline.
+    """Mimics snowflake.connector.cursor for offline loader tests.
 
-    - .execute(query) -> mencatat query ke sink (agar test bisa assert) dan
-                         opsional melempar error jika query mengandung fail_on
-    - .fetchone()     -> mengembalikan (count,) untuk SELECT COUNT(*)
+    - .execute()    -> records the query and optionally raises if it matches fail_on
+    - .fetchone()   -> returns (count,) for SELECT COUNT(*)
     """
 
     def __init__(self, sink, count=0, fail_on=None):
@@ -86,7 +81,7 @@ class FakeSnowflakeCursor:
 
 
 class FakeSnowflakeConnection:
-    """Meniru snowflake.connector.connection untuk test loader offline."""
+    """Mimics snowflake.connector.connection for offline loader tests."""
 
     def __init__(self, count=0, fail_on=None):
         self.executed = []

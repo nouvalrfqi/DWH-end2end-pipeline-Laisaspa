@@ -1,4 +1,4 @@
-"""Data validation framework (Sprint 3, Phase 4).
+"""Data validation framework.
 
 Validates extracted DataFrames against rules in config/validation_rules.yaml.
 Every check returns a dict {"name", "status", "detail"}; run_table_validation

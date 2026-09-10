@@ -1,7 +1,7 @@
-"""Test untuk config/settings.py.
+"""Tests for config/settings.py.
 
-Goal: memastikan konfigurasi proyek dibaca benar dan "fail-fast" terjadi
-ketika ada env var penting yang hilang.
+Verifies the project configuration is read correctly and fails fast when
+important environment variables are missing.
 """
 
 import pytest
@@ -9,8 +9,8 @@ import pytest
 from config import settings
 
 
-def test_pg_conn_params_memiliki_semua_key_yang_dibutuhkan_psycopg2():
-    """Kunci kontrak: settings harus selalu menghasilkan param koneksi lengkap."""
+def test_pg_conn_params_contains_all_psycopg2_keys():
+    """Contract: settings must always produce a complete connection params."""
     params = settings.pg_conn_params()
     for key in ["host", "port", "dbname", "user", "password",
                 "sslmode", "connect_timeout"]:
@@ -18,12 +18,12 @@ def test_pg_conn_params_memiliki_semua_key_yang_dibutuhkan_psycopg2():
 
 
 def test_pg_conn_params_default_sslmode_require():
-    """Supabase mewajibkan SSL, jadi default harus 'require'."""
+    """Supabase requires SSL, so the default must be 'require'."""
     assert settings.pg_conn_params()["sslmode"] == "require"
 
 
-def test_validate_passes_saat_semua_required_terisi(monkeypatch):
-    """Jika semua env penting ada, validate() tidak boleh melempar error."""
+def test_validate_passes_when_required_are_set(monkeypatch):
+    """validate() must not raise when every required env is present."""
     monkeypatch.setattr(settings, "PG_HOST", "dummy")
     monkeypatch.setattr(settings, "PG_USERNAME", "dummy")
     monkeypatch.setattr(settings, "PG_PASSWORD", "dummy")
@@ -31,11 +31,11 @@ def test_validate_passes_saat_semua_required_terisi(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "dummy")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "dummy")
 
-    settings.validate()  # kalau ini melempar, test otomatis gagal
+    settings.validate()  # the test fails automatically if this raises
 
 
-def test_validate_raises_saat_required_hilang(monkeypatch):
-    """Fail-fast: kalau ada env penting kosong, harus error dengan pesan jelas."""
+def test_validate_raises_when_required_missing(monkeypatch):
+    """Fail fast: a missing env must produce a clear error message."""
     monkeypatch.setattr(settings, "PG_HOST", "")
     monkeypatch.setattr(settings, "PG_USERNAME", "")
     monkeypatch.setattr(settings, "PG_PASSWORD", "")
@@ -47,22 +47,22 @@ def test_validate_raises_saat_required_hilang(monkeypatch):
         settings.validate()
 
 
-def test_source_tables_berisi_11_tabel():
-    """Kontrak awal proyek: 11 tabel sumber dari PRD."""
+def test_source_tables_contain_11_tables():
+    """Initial project contract: 11 source tables."""
     assert len(settings.SOURCE_TABLES) == 11
     assert "transactions" in settings.SOURCE_TABLES
 
 
-def test_snowflake_conn_params_memiliki_semua_key_connector():
-    """Kontrak: params Snowflake selalu berisi key yang dibutuhkan connector."""
+def test_snowflake_conn_params_contains_all_connector_keys():
+    """Contract: Snowflake params always contain the connector keys."""
     params = settings.snowflake_conn_params()
     for key in ["account", "user", "password", "role",
                 "warehouse", "database", "schema"]:
         assert key in params
 
 
-def test_snowflake_conn_params_mengikuti_env(monkeypatch):
-    """Nilai param diambil dari env SNOWFLAKE_*."""
+def test_snowflake_conn_params_follow_env(monkeypatch):
+    """Param values come from the SNOWFLAKE_* environment."""
     monkeypatch.setattr(settings, "SF_ACCOUNT", "acct-1")
     monkeypatch.setattr(settings, "SF_USERNAME", "user1")
     monkeypatch.setattr(settings, "SF_PASSWORD", "pass1")
@@ -75,17 +75,17 @@ def test_snowflake_conn_params_mengikuti_env(monkeypatch):
     assert params["role"] == "ACCOUNTADMIN"
 
 
-def test_validate_snowflake_passes_saat_semua_terisi(monkeypatch):
-    """Jika semua env Snowflake terisi, validate_snowflake() tidak boleh error."""
+def test_validate_snowflake_passes_when_all_set(monkeypatch):
+    """validate_snowflake() must not raise when every snowflake env is set."""
     for name in ["SF_ACCOUNT", "SF_USERNAME", "SF_PASSWORD", "SF_ROLE",
                  "SF_WAREHOUSE", "SF_DATABASE", "SF_SCHEMA"]:
         monkeypatch.setattr(settings, name, "dummy")
 
-    settings.validate_snowflake()  # kalau ini melempar, test otomatis gagal
+    settings.validate_snowflake()  # the test fails automatically if this raises
 
 
-def test_validate_snowflake_raises_saat_hilang(monkeypatch):
-    """Fail-fast: env Snowflake kosong harus memunculkan RuntimeError jelas."""
+def test_validate_snowflake_raises_when_missing(monkeypatch):
+    """Fail fast: empty Snowflake env must raise a clear RuntimeError."""
     for name in ["SF_ACCOUNT", "SF_USERNAME", "SF_PASSWORD", "SF_ROLE",
                  "SF_WAREHOUSE", "SF_DATABASE", "SF_SCHEMA"]:
         monkeypatch.setattr(settings, name, "")

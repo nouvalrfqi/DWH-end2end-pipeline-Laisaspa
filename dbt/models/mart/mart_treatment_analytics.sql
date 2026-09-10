@@ -1,10 +1,10 @@
 --
 -- MART_TREATMENT_ANALYTICS
 -- ------------------------
--- Performa tiap treatment berdasarkan booking activity.
--- Grain: 1 baris per treatment_key.
--- SOP: dim_treatment + fact_treatment_activities.
--- Status yang dikenal: completed, cancelled, booked, no_show.
+-- Treatment performance from booking activity.
+-- Grain: 1 row per treatment_key.
+-- Source: dim_treatment + fact_treatment_activities.
+-- Known statuses: completed, cancelled, booked, no_show.
 --
 
 WITH treatments AS (

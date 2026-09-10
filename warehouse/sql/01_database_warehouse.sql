@@ -1,8 +1,7 @@
 -- =============================================================
 -- 01_database_warehouse.sql
 -- Foundation objects: database, warehouse (compute), schemas.
--- Idempotent: safe to run repeatedly (PRD section 17).
--- DDL only -> can run without an active warehouse (bootstrap mode).
+-- Idempotent: safe to run repeatedly (DDL only, bootstrap mode).
 -- =============================================================
 
 CREATE DATABASE IF NOT EXISTS SPA_ANALYTICS;

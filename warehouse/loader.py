@@ -1,4 +1,4 @@
-"""Snowflake loader: thin SQL runner for staging (Phase 5, Task 4).
+"""Snowflake loader: thin SQL runner for staging.
 
 --setup  executes the DDL in warehouse/sql/ (01 -> 02 -> 03) using a
          bootstrap connection (only account/user/password/role; the
@@ -66,7 +66,7 @@ def connect_snowflake(require_objects: bool = False):
 
 
 def build_truncate_statement(table: str) -> str:
-    """Idempotency (PRD section 17): wipe the staging table before COPY."""
+    """Idempotency: wipe the staging table before COPY."""
     return f"TRUNCATE TABLE {STAGING_SCHEMA}.{table}"
 
 

@@ -1,10 +1,10 @@
 --
 -- MART_REVENUE_DAILY
 -- ------------------
--- Pendapatan harian berdasarkan sumber transaksi.
--- Grain: 1 baris per (transaction_date, source).
+-- Daily revenue by transaction source.
+-- Grain: 1 row per (transaction_date, source).
 -- NFK: date_key -> dim_date.
--- Metrik: #transaksi, gross, diskon, netto, AOV.
+-- Metrics: transactions, gross, discount, net, AOV.
 --
 
 WITH transactions AS (

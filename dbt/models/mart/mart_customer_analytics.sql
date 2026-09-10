@@ -1,9 +1,9 @@
 --
 -- MART_CUSTOMER_ANALYTICS
 -- -----------------------
--- Profil + nilai per pelanggan.
--- Grain: 1 baris per customer_key.
--- SOP: dim_customer + agregasi fact_transactions.
+-- Customer profile and lifetime value.
+-- Grain: 1 row per customer_key.
+-- Source: dim_customer + aggregated fact_transactions.
 --
 
 WITH customers AS (

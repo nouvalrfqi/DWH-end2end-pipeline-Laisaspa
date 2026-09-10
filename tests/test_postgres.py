@@ -1,7 +1,7 @@
-"""Test untuk extract/postgres_connector.py dengan psycopg2 di-mock.
+"""Tests for extract/postgres_connector.py with psycopg2 mocked.
 
-Goal: menguji LOGIKA koneksi kita (retry/backoff, error handling, query)
-tanpa database sungguhan.
+Verifies the connection logic (retry/backoff, error handling, queries)
+without a real database.
 """
 
 import psycopg2
@@ -11,8 +11,8 @@ from extract import postgres_connector
 from fakes import FakeConnection
 
 
-def test_connect_returns_connection_saat_sukses(monkeypatch):
-    """Jika psycopg2.connect berhasil, kita terima apa adanya."""
+def test_connect_returns_connection_on_success(monkeypatch):
+    """When psycopg2.connect succeeds, return it untouched."""
     fake = FakeConnection()
     monkeypatch.setattr(postgres_connector.psycopg2, "connect",
                         lambda **kw: fake)
@@ -20,10 +20,10 @@ def test_connect_returns_connection_saat_sukses(monkeypatch):
     assert postgres_connector.connect() is fake
 
 
-def test_connect_raises_setelah_max_retries(monkeypatch):
-    """Jika gagal terus-menerus, kita harus menyerah dengan RuntimeError.
+def test_connect_raises_after_max_retries(monkeypatch):
+    """Give up with a RuntimeError after exhausting all retries.
 
-    time.sleep di-patch supaya test tidak benar-benar menunggu 2+4+... detik.
+    time.sleep is patched so the test does not wait 2+4+... seconds.
     """
     calls = {"n": 0}
 
@@ -37,11 +37,11 @@ def test_connect_raises_setelah_max_retries(monkeypatch):
     with pytest.raises(RuntimeError, match="Could not connect to PostgreSQL"):
         postgres_connector.connect(max_retries=2)
 
-    assert calls["n"] == 2  # tepat 2 percobaan, tidak lebih
+    assert calls["n"] == 2  # exactly 2 attempts, no more
 
 
-def test_connect_sukses_setelah_retry(monkeypatch):
-    """Gagal 2x lalu sukses -> harus berhasil di percobaan ke-3."""
+def test_connect_succeeds_after_retry(monkeypatch):
+    """Fail twice then succeed -> must succeed on the 3rd attempt."""
     calls = {"n": 0}
     fake = FakeConnection()
 
@@ -58,15 +58,15 @@ def test_connect_sukses_setelah_retry(monkeypatch):
     assert calls["n"] == 3
 
 
-def test_fetch_row_count_mengembalikan_angka():
-    """COUNT(*) harus mengembalikan baris pertama dari query (angka)."""
+def test_fetch_row_count_returns_number():
+    """COUNT(*) must return the first row of the query (a number)."""
     conn = FakeConnection(rows=[(179,)])
 
     assert postgres_connector.fetch_row_count(conn, "transactions") == 179
 
 
-def test_inspect_table_mengembalikan_daftar_kolom():
-    """inspect_table harus mengembalikan list (column_name, data_type)."""
+def test_inspect_table_returns_column_list():
+    """inspect_table must return a list of (column_name, data_type)."""
     expected = [("id", "uuid"), ("name", "text")]
     conn = FakeConnection(rows=expected)
 

@@ -1,8 +1,8 @@
-"""Configuration-driven generic extractor (Phase 3, Sprint 2 + validation).
+"""Configuration-driven generic extractor.
 
 One framework extracts every configured table to S3 as CSV. No
 table-specific extraction code. Batch metadata is written to logs/.
-Validation (Sprint 3) runs before upload: on FAIL the file is not uploaded.
+Validation runs before upload: on FAIL the file is not uploaded.
 """
 
 import argparse

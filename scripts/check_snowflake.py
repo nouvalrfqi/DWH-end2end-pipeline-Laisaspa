@@ -1,4 +1,4 @@
-"""Snowflake connectivity check (Phase 5, Task 1).
+"""Snowflake connectivity check.
 
 Connects using only the NON-EMPTY SNOWFLAKE_* settings so it also works in
 "bootstrap" mode — before `--setup` has created SPA_WH / SPA_ANALYTICS

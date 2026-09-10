@@ -5,7 +5,7 @@ boto3==1.43.62                  # AWS S3 SDK
 PyYAML==6.0.3                   # configuration files (config/*.yaml)
 pandas==3.0.5                   # dataframes / CSV serialization
 pyarrow==23.0.1                 # parquet serialization (future raw format)
-snowflake-connector-python==4.7.2  # Snowflake driver (Phase 5)
+snowflake-connector-python==4.7.2  # Snowflake driver
 
 # Testing
 pytest==9.1.1

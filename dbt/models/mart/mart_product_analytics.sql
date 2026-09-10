@@ -1,10 +1,10 @@
 --
 -- MART_PRODUCT_ANALYTICS
 -- ----------------------
--- Penjualan per produk retail.
--- Grain: 1 baris per product_key.
--- SOP: dim_product + fact_completed_items
---       (item_key pada completed_items dicocokkan ke product_key).
+-- Retail product sales.
+-- Grain: 1 row per product_key.
+-- Source: dim_product + fact_completed_items
+--       (item_key matches product_key).
 --
 
 WITH products AS (

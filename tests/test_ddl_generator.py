@@ -1,7 +1,8 @@
-"""Test untuk warehouse/ddl_generator.py (Task 3).
+"""Tests for warehouse/ddl_generator.py.
 
-Fungsi murni (map_postgres_type, generate_create_table) diuji offline;
-fungsi yang butuh koneksi Supabase diuji lewat fake inspect_table.
+Pure functions (map_postgres_type, generate_create_table) are tested
+offline; functions requiring a Supabase connection are tested through a
+fake inspect_table.
 """
 
 import pytest
@@ -40,12 +41,12 @@ def test_map_postgres_type_case_insensitive():
     assert ddl_generator.map_postgres_type("  Text  ") == "VARCHAR"
 
 
-def test_map_postgres_type_tipe_tidak_dikenal_memunculkan_error():
+def test_map_postgres_type_unknown_type_raises():
     with pytest.raises(RuntimeError, match="Unmapped PostgreSQL type"):
         ddl_generator.map_postgres_type("geometry")
 
 
-def test_generate_create_table_menghasilkan_ddl_benar():
+def test_generate_create_table_produces_correct_ddl():
     columns = [
         ("id", "uuid"),
         ("amount", "numeric"),
@@ -62,13 +63,13 @@ def test_generate_create_table_menghasilkan_ddl_benar():
     assert ddl.endswith("\n);")
 
 
-def test_generate_create_table_tanpa_kolom_memunculkan_error():
+def test_generate_create_table_without_columns_raises():
     with pytest.raises(RuntimeError, match="no columns found"):
         ddl_generator.generate_create_table("transactions", [])
 
 
-def test_generate_ddl_menggunakan_inspect_table_untuk_semua_tabel(monkeypatch):
-    """Kunci desain: satu loop untuk semua tabel (bukan per-tabel manual)."""
+def test_generate_ddl_uses_inspect_table_for_all_tables(monkeypatch):
+    """Design contract: one loop for all tables, not per-table manual code."""
     from extract import postgres_connector
 
     calls = []
@@ -86,5 +87,5 @@ def test_generate_ddl_menggunakan_inspect_table_untuk_semua_tabel(monkeypatch):
     assert "STAGING.b" in ddl
 
 
-def test_sumber_tabel_11():
+def test_source_tables_are_11():
     assert len(settings.SOURCE_TABLES) == 11

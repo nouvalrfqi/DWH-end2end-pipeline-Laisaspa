@@ -1,4 +1,4 @@
-"""AWS S3 client wrapper for the raw data lake (Sprint 1)."""
+"""AWS S3 client wrapper for the raw data lake."""
 
 import boto3
 from botocore.exceptions import ClientError

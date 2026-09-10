@@ -1,9 +1,9 @@
 --
 -- MART_OPERATIONS_BOOKING
 -- -----------------------
--- Volume booking per hari, per halaman sumber, per status.
--- Grain: 1 baris per (scheduled_date, source_page, status).
--- SOP: fact_treatment_activities + source_page dari booking_logs.
+-- Booking volume by day, source page and status.
+-- Grain: 1 row per (scheduled_date, source_page, status).
+-- Source: fact_treatment_activities + source_page from booking_logs.
 --
 
 WITH activities AS (

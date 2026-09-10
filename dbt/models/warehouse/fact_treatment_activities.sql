@@ -1,14 +1,14 @@
 --
 -- FACT_TREATMENT_ACTIVITIES
 -- -------------------------
--- Menyimpan satu baris per appointment (treatment) yang telah dijadwalkan.
--- Hanya menyertakan baris dengan item_type = 'treatment'.
--- Foreign key:
+-- One row per scheduled treatment appointment.
+-- Only rows with item_type = 'treatment' are included.
+-- Foreign keys:
 --   - customer_key       -> dim_customer
 --   - treatment_key      -> dim_treatment
 --   - scheduled_date_key -> dim_date
--- Kolom guest_name diletakkan di sini (bukan di dimensi), sehingga
--- Power BI dapat men-display nama tamu bersamaan dengan detail treatment.
+-- guest_name lives on the fact so Power BI can display it alongside
+-- treatment details.
 --
 
 SELECT

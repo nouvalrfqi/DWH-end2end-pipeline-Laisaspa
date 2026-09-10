@@ -1,4 +1,4 @@
-"""Sprint 1 acceptance: verify PostgreSQL + S3 connectivity end to end."""
+"""Acceptance check: verify PostgreSQL + S3 connectivity end to end."""
 
 import sys
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     s3_ok = check_s3()
     print()
     if postgres_ok and s3_ok:
-        print("Sprint 1 acceptance: ALL PASS")
+        print("Connectivity check: ALL PASS")
         sys.exit(0)
-    print("Sprint 1 acceptance: FAIL")
+    print("Connectivity check: FAIL")
     sys.exit(1)

@@ -1,8 +1,8 @@
-"""Test untuk validation/validators.py.
+"""Tests for validation/validators.py.
 
-Goal: memastikan setiap aturan validasi (schema, null, duplicate, range,
-accepted value, row count) berperilaku benar — PASS saat data baik, FAIL saat
-data melanggar, dan SKIPPED saat tidak dikonfigurasi.
+Each validation rule (schema, null, duplicate, range, accepted value,
+row count) must behave correctly: PASS on good data, FAIL on violations,
+and SKIPPED when not configured.
 """
 
 import pandas as pd
@@ -11,7 +11,7 @@ from validation import validators
 
 
 def _df(columns, rows):
-    """Helper kecil: bikin DataFrame dari daftar kolom dan baris."""
+    """Build a DataFrame from column names and rows."""
     return pd.DataFrame(rows, columns=columns)
 
 
@@ -56,7 +56,7 @@ def test_validate_unique_duplicate():
     assert validators.validate_unique(df, ["id"])["status"] == "FAIL"
 
 
-def test_validate_unique_skipped_kalau_tidak_dikonfigurasi():
+def test_validate_unique_skipped_when_not_configured():
     assert validators.validate_unique(pd.DataFrame(), [])["status"] == "SKIPPED"
 
 
@@ -72,7 +72,7 @@ def test_validate_min_value_fail():
     assert validators.validate_min_value(df, "price", 0)["status"] == "FAIL"
 
 
-def test_validate_min_value_column_hilang():
+def test_validate_min_value_missing_column():
     df = _df(["price"], [[1]])
     assert validators.validate_min_value(df, "total", 0)["status"] == "FAIL"
 
@@ -86,7 +86,7 @@ def test_validate_accepted_values_pass():
 
 
 def test_validate_accepted_values_fail():
-    df = _df(["rating"], [[6]])  # rating 6 di luar rentang 1-5
+    df = _df(["rating"], [[6]])  # 6 is outside the 1-5 range
     assert validators.validate_accepted_values(df, "rating",
                                                [1, 2, 3, 4, 5])["status"] == "FAIL"
 
@@ -101,9 +101,9 @@ def test_validate_row_count_fail():
     assert validators.validate_row_count(5, 4)["status"] == "FAIL"
 
 
-# ---------- agregasi run_table_validation ----------
+# ---------- run_table_validation aggregation ----------
 
-def test_run_table_validation_skipped_tanpa_rules():
+def test_run_table_validation_skipped_without_rules():
     r = validators.run_table_validation("treatments", pd.DataFrame(), None, 0)
     assert r["overall"] == "SKIPPED"
 
@@ -120,7 +120,7 @@ def test_run_table_validation_pass():
     assert r["overall"] == "PASS"
 
 
-def test_run_table_validation_fail_satu_check_gagal():
+def test_run_table_validation_fails_on_single_bad_check():
     rules = {
         "columns": ["id", "price"],
         "checks": [{"type": "min_value", "column": "price", "min": 0}],
@@ -130,8 +130,8 @@ def test_run_table_validation_fail_satu_check_gagal():
     assert r["overall"] == "FAIL"
 
 
-def test_run_table_validation_unknown_rule_type_dianggap_fail():
-    """Aturan tak dikenal harus FAIL, bukan diam-diam di-skip."""
+def test_run_table_validation_unknown_rule_type_fails():
+    """Unknown rule types must FAIL, not be silently skipped."""
     rules = {
         "columns": ["id"],
         "checks": [{"type": "mystery", "column": "id"}],

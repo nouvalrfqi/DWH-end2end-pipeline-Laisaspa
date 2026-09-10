@@ -1,6 +1,6 @@
 """Generate Snowflake STAGING DDL from the live Supabase (PostgreSQL) schema.
 
-PRD Rule 3: never invent columns. The staging tables mirror exactly what
+Design rule: never invent columns. The staging tables mirror exactly what
 inspect_table() returns from the source database.
 
 Pure functions (map_postgres_type, generate_create_table) are testable
@@ -36,8 +36,7 @@ def map_postgres_type(pg_type: str) -> str:
     """Map a PostgreSQL data_type to its Snowflake equivalent.
 
     Strict by design: an unknown type raises instead of silently producing a
-    VARCHAR (PRD Rule 3 — surface schema changes so we extend the map
-    consciously).
+    VARCHAR — surface schema changes so we extend the map consciously.
     """
     normalized = pg_type.strip().lower()
     try:

@@ -34,7 +34,7 @@ SF_SCHEMA = os.getenv("SNOWFLAKE_SCHEMA", "")
 # --- Raw data lake layout ---
 RAW_PREFIX = "raw"
 
-# --- Source tables (Phase 2 full load; Sprint 2 will move this to YAML) ---
+# --- Source tables (full load; equivalent to config/tables.yaml) ---
 SOURCE_TABLES = [
     "treatments",
     "spa_products",

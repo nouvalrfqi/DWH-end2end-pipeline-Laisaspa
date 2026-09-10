@@ -1,28 +1,17 @@
 -- =============================================================
 -- 02_stage_setup.sql
 -- CSV file format + external stage pointing at the S3 data lake.
--- Idempotent: safe to run repeatedly (PRD section 17).
+-- Idempotent: safe to run repeatedly.
 --
--- AUTHENTICATION STRATEGY:
--- Uses direct AWS credentials (KEY_ID / SECRET_KEY) instead of
--- a storage integration + IAM role.
+-- AUTHENTICATION:
+-- Uses direct AWS credentials injected by loader.py from the
+-- environment (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY). A storage
+-- integration + IAM role was considered but blocked by an
+-- sts:AssumeRole restriction between Snowflake and this AWS account.
+-- Placeholders {AWS_KEY_ID} / {AWS_SECRET_KEY} are replaced before
+-- execution; run via `python -m warehouse.loader --setup`.
 --
--- Why not storage integration?
---   Snowflake's internal IAM user could not AssumeRole into our
---   AWS account (sts:AssumeRole denied — confirmed as a
---   Snowflake-side issue after exhaustive AWS diagnostics).
---
--- The credentials are injected at runtime by loader.py from the
--- environment variables AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
--- Placeholders {AWS_KEY_ID} and {AWS_SECRET_KEY} are replaced
--- before execution — DO NOT run this file directly in a worksheet;
--- use `python -m warehouse.loader --setup` instead.
---
--- To run manually in Snowflake Worksheet, replace the placeholders
--- with actual values or use the SQL in the walkthrough document.
---
--- Stage URL points at the raw/ prefix so COPY later uses
--- FROM @spa_stage/<table>/ (no extra 'raw/' segment).
+-- Stage URL points at the raw/ prefix so COPY uses @spa_stage/<table>/.
 -- =============================================================
 
 CREATE FILE FORMAT IF NOT EXISTS SPA_ANALYTICS.STAGING.spa_csv_format

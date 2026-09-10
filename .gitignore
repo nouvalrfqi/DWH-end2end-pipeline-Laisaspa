@@ -1,7 +1,7 @@
 # ===== Secrets =====
 .env
-*.env
 .env.*
+*.env
 *.pem
 
 # ===== Python =====
@@ -18,34 +18,30 @@ venv/
 htmlcov/
 
 # ===== Local data / logs =====
-# NOTE: data lives in S3 (data lake) + Snowflake. These dirs are just a
-# safety net for any future local scratch data. The `warehouse/` PYTHON
-# PACKAGE (snowflake loader) must NOT be ignored, hence the -data suffix.
 logs/
 *.csv
 *.parquet
 raw/
-# NOTE: anchored to repo root only (/staging/) so it does NOT swallow
-# SPA_ANALYTICS_DBT/models/staging/sources.yml
 /staging/
 warehouse-data/
 
 # ===== dbt =====
-SPA_ANALYTICS_DBT/logs/
-SPA_ANALYTICS_DBT/target/
-SPA_ANALYTICS_DBT/dbt_packages/
-SPA_ANALYTICS_DBT/.user.yml
+dbt/logs/
+dbt/target/
+dbt/dbt_packages/
+dbt/.user.yml
 profiles.yml
 
-# ===== Airflow (local machine state) =====
+# ===== Airflow (local state) =====
 airflow/airflow.db
 airflow/airflow.cfg
 airflow/webserver_config.py
 
-# ===== OpenCode scratch / personal =====
-opencode_orch/
+# ===== Internal docs (kept locally, not published) =====
+docs/*.md
 
-# ===== Scratch scripts =====
+# ===== Scratch / personal =====
+opencode_orch/
 scripts/temp_query.py
 
 # ===== IDE / OS =====
@@ -53,4 +49,3 @@ scripts/temp_query.py
 .vscode/
 .DS_Store
 Thumbs.db
-

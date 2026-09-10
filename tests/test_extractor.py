@@ -1,8 +1,9 @@
-"""Test untuk extract/generic_extractor.py.
+"""Tests for extract/generic_extractor.py.
 
-Goal: menguji bagian inti pipeline — build key S3, baca konfigurasi, dan
-perilaku extract_table (sukses / validasi gagal / error). Semua dependensi
-eksternal (Postgres & S3) di-mock supaya offline & deterministik.
+Covers the core pipeline pieces — S3 key building, YAML config loading,
+and extract_table behaviour (success / validation failure / exception).
+All external dependencies (Postgres & S3) are mocked so tests run offline
+and deterministically.
 """
 
 from datetime import datetime
@@ -12,7 +13,7 @@ from fakes import FakeConnection
 
 
 class _NullLog:
-    """Pengganti logger: tidak mencetak apa pun selama test."""
+    """Logger replacement that prints nothing during the test."""
     def info(self, *args, **kwargs):
         pass
 
@@ -23,7 +24,7 @@ class _NullLog:
 # ---------- helper ----------
 
 def _run_extract_table(monkeypatch, conn, rows, columns, validation_overall="PASS"):
-    """Setup mock yang dipakai beberapa test extract_table."""
+    """Wire the mocks shared by several extract_table tests."""
     monkeypatch.setattr(postgres_connector, "fetch_row_count",
                         lambda c, t: len(rows))
     monkeypatch.setattr(
@@ -42,8 +43,8 @@ def _run_extract_table(monkeypatch, conn, rows, columns, validation_overall="PAS
 
 # ---------- build_s3_key ----------
 
-def test_build_s3_key_partisi_berdasarkan_tanggal_ingestion():
-    """Key harus mengikuti format raw/<table>/year=/month=/day=..."""
+def test_build_s3_key_partitions_by_ingestion_date():
+    """Key must follow raw/<table>/year=/month=/day=... format."""
     now = datetime(2026, 8, 9, 2, 30, 0)
     key = generic_extractor.build_s3_key("transactions", "20260809_023000", now)
 
@@ -53,8 +54,8 @@ def test_build_s3_key_partisi_berdasarkan_tanggal_ingestion():
 
 # ---------- load_config ----------
 
-def test_load_config_mengembalikan_daftar_tabel():
-    """Konfigurasi YAML harus terbaca dan memuat daftar tabel."""
+def test_load_config_returns_table_list():
+    """The YAML config must load and contain the table list."""
     config = generic_extractor.load_config()
     assert "tables" in config
     assert "transactions" in config["tables"]
@@ -62,7 +63,7 @@ def test_load_config_mengembalikan_daftar_tabel():
 
 # ---------- extract_table: SUCCESS ----------
 
-def test_extract_table_success_mengupload_file(monkeypatch):
+def test_extract_table_success_uploads_file(monkeypatch):
     rows = [[1, "Massage", 150000], [2, "Facial", 200000]]
     columns = ["id", "name", "price"]
     conn = FakeConnection(rows=rows, columns=columns)
@@ -77,12 +78,12 @@ def test_extract_table_success_mengupload_file(monkeypatch):
     assert record["rows_extracted"] == 2
     assert record["rows_loaded"] == 2
     assert record["file_path"].endswith("treatments_20260809_023000.csv")
-    assert uploaded["key"] == record["file_path"]  # file yang di-upload = path yang dicatat
+    assert uploaded["key"] == record["file_path"]  # uploaded path == recorded path
 
 
-# ---------- extract_table: VALIDATION FAIL (tidak upload) ----------
+# ---------- extract_table: VALIDATION FAIL (no upload) ----------
 
-def test_extract_table_tidak_mengupload_saat_validasi_gagal(monkeypatch):
+def test_extract_table_does_not_upload_on_validation_failure(monkeypatch):
     rows = [[1, "Massage", -5]]
     columns = ["id", "name", "price"]
     conn = FakeConnection(rows=rows, columns=columns)
@@ -96,13 +97,13 @@ def test_extract_table_tidak_mengupload_saat_validasi_gagal(monkeypatch):
 
     assert record["status"] == "VALIDATION_FAILED"
     assert record["rows_loaded"] == 0
-    assert called["n"] == 0            # bukti: upload TIDAK pernah dipanggil
+    assert called["n"] == 0            # proof: upload was never called
     assert "validation failed" in record["error_message"]
 
 
 # ---------- extract_table: exception ----------
 
-def test_extract_table_mencatat_error_saat_exception(monkeypatch):
+def test_extract_table_records_error_on_exception(monkeypatch):
     conn = FakeConnection(rows=[], columns=["id"])
 
     def boom(c, t):
@@ -121,8 +122,8 @@ def test_extract_table_mencatat_error_saat_exception(monkeypatch):
 
 # ---------- run(): error_policy ----------
 
-def test_run_error_policy_continue_memproses_semua(monkeypatch):
-    """Mode 'continue': satu tabel gagal tidak menghentikan tabel lainnya."""
+def test_run_error_policy_continue_processes_all(monkeypatch):
+    """With 'continue', one failed table must not stop the others."""
     monkeypatch.setattr(generic_extractor.postgres_connector, "connect",
                         lambda **kw: FakeConnection(rows=[], columns=["id"]))
     monkeypatch.setattr(generic_extractor.postgres_connector, "fetch_row_count",
@@ -138,11 +139,11 @@ def test_run_error_policy_continue_memproses_semua(monkeypatch):
 
     records = generic_extractor.run(batch_id="test_continue")
 
-    assert len(records) == 3  # semua tabel tetap diproses meski gagal
+    assert len(records) == 3  # every table is processed despite failures
 
 
-def test_run_error_policy_stop_berhenti_saat_gagal(monkeypatch):
-    """Mode 'stop': kegagalan pertama langsung menghentikan sisa tabel."""
+def test_run_error_policy_stop_halts_on_failure(monkeypatch):
+    """With 'stop', the first failure halts the remaining tables."""
     count = {"n": 0}
 
     def failing(*a, **k):
@@ -163,5 +164,5 @@ def test_run_error_policy_stop_berhenti_saat_gagal(monkeypatch):
 
     records = generic_extractor.run(batch_id="test_stop")
 
-    assert len(records) == 1   # hanya 1 record, sisanya dihentikan
-    assert count["n"] == 1     # extract_table hanya dipanggil sekali
+    assert len(records) == 1   # only 1 record; the rest are halted
+    assert count["n"] == 1     # extract_table was called exactly once
